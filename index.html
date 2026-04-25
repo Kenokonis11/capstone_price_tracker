@@ -1,0 +1,2765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal Asset Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' };
+        // Always start in light mode; OS/browser dark mode preference is intentionally ignored.
+        // The in-app toggle (Settings > Display) is the only way to activate dark mode.
+        document.documentElement.classList.remove('dark');
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="h-screen overflow-hidden bg-gray-50 font-sans text-gray-800 dark:bg-gray-900 dark:text-gray-100">
+    <div class="flex h-full">
+        <aside class="flex w-64 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+            <div class="border-b border-gray-200 p-6 dark:border-gray-800">
+                <button id="logo-home-button" type="button" class="text-xl font-bold tracking-tight text-indigo-600 dark:text-indigo-400">
+                    AssetTrack.io
+                </button>
+            </div>
+
+            <nav class="flex-1 space-y-2 overflow-y-auto p-4">
+                <button
+                    type="button"
+                    data-view-target="view-dashboard"
+                    data-sidebar-link="view-dashboard"
+                    class="view-nav block w-full rounded-lg px-4 py-2 text-left font-medium"
+                >
+                    Collection
+                </button>
+                <button
+                    type="button"
+                    data-view-target="view-settings"
+                    data-sidebar-link="view-settings"
+                    class="view-nav block w-full rounded-lg px-4 py-2 text-left text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+                >
+                    Settings & Integrations
+                </button>
+                <button
+                    type="button"
+                    data-view-target="view-history"
+                    data-sidebar-link="view-history"
+                    class="view-nav block w-full rounded-lg px-4 py-2 text-left text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+                >
+                    History
+                </button>
+            </nav>
+
+        </aside>
+
+        <main class="relative flex-1 overflow-hidden dark:bg-gray-900">
+            <div id="view-dashboard" class="flex h-full flex-1">
+                <section class="flex min-w-0 flex-1 flex-col overflow-hidden border-r border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900">
+                    <header class="flex items-center justify-between border-b border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+                        <div>
+                            <p class="text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Inventory Feed</p>
+                            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Tracked Assets</h2>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <button
+                                id="open-add-asset-modal"
+                                type="button"
+                                class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                            >
+                                Add
+                            </button>
+                            <button
+                                id="select-items-button"
+                                type="button"
+                                class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2"
+                            >
+                                Select Items
+                            </button>
+                            <button
+                                id="delete-selected-button"
+                                type="button"
+                                class="hidden rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-500"
+                            >
+                                Delete Selected
+                            </button>
+                            <button
+                                id="sell-selected-button"
+                                type="button"
+                                class="hidden rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
+                            >
+                                Sell Selected
+                            </button>
+                            <button
+                                id="cancel-select-button"
+                                type="button"
+                                class="hidden rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-100"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </header>
+
+                    <div class="flex-1 overflow-y-auto p-6">
+                        <div id="inventory-list" class="space-y-4"></div>
+                    </div>
+                </section>
+
+                <aside class="flex w-96 min-w-0 flex-col overflow-hidden bg-white dark:bg-gray-800">
+                    <div class="space-y-6 overflow-y-auto p-6 pb-24">
+                        <section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                            <button id="open-analytics-view" type="button" class="block w-full text-left">
+                                <div class="mb-4 flex items-start justify-between">
+                                    <div>
+                                        <p class="text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Analytics</p>
+                                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Total Collection Value</h3>
+                                    </div>
+                                    <p id="collection-total" class="text-lg font-bold text-emerald-600">$0.00</p>
+                                </div>
+                                <div class="h-64 rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900">
+                                    <canvas id="macro-chart"></canvas>
+                                </div>
+                            </button>
+                        </section>
+
+                        <button
+                            id="dashboard-alerts-button"
+                            type="button"
+                            data-view-target="view-alerts"
+                            class="view-nav flex min-h-0 w-full flex-col rounded-xl border border-gray-200 bg-white text-left shadow-sm transition hover:border-indigo-300 hover:shadow-md dark:border-gray-700 dark:bg-gray-800"
+                        >
+                            <div class="border-b border-gray-200 px-5 py-4 dark:border-gray-700">
+                                <p class="text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Alerts</p>
+                                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Collection Feed</h3>
+                            </div>
+                            <div id="dashboard-alerts-feed" class="flex max-h-80 flex-col gap-3 overflow-y-auto p-5">
+                            </div>
+                        </button>
+                    </div>
+                </aside>
+            </div>
+
+            <div id="view-asset-profile" class="hidden h-full flex-1 flex-col overflow-y-auto p-6">
+                <button
+                    type="button"
+                    data-view-target="view-dashboard"
+                    class="view-nav mb-4 self-start text-sm font-medium text-gray-500 transition hover:text-indigo-600"
+                >
+                    Back to Dashboard
+                </button>
+
+                <div class="mb-6 flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Asset Profile</p>
+                        <h2 id="asset-profile-title" class="text-3xl font-bold text-gray-900 dark:text-white">Asset Title</h2>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button
+                            id="edit-asset-button"
+                            type="button"
+                            class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-100"
+                        >
+                            Edit Asset
+                        </button>
+                        <button
+                            id="update-asset-button"
+                            type="button"
+                            class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
+                        >
+                            Update Asset
+                        </button>
+                        <button
+                            id="delete-asset-button"
+                            type="button"
+                            class="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-500"
+                        >
+                            Delete
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid flex-1 grid-cols-3 gap-6">
+                    <section class="space-y-6">
+                        <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 shadow-sm">
+                            <img id="asset-profile-image" alt="Asset preview" class="hidden h-80 w-full object-cover">
+                            <div id="asset-image-placeholder" class="flex h-80 items-center justify-center text-sm text-gray-400 dark:text-gray-600">
+                                [ Asset Image Placeholder ]
+                            </div>
+                        </div>
+
+                        <div id="asset-profile-description" class="rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 p-6 text-sm leading-7 text-gray-600 dark:text-gray-300 shadow-sm">
+                            <p><strong>Description:</strong> No description entered.</p>
+                            <p class="mt-4"><strong>Category:</strong> Uncategorized</p>
+                            <p class="mt-2"><strong>Condition:</strong> Unspecified</p>
+                            <label class="mt-4 block">
+                                <strong>Status:</strong>
+                                <select
+                                    id="asset-status-select"
+                                    class="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                >
+                                    <option>Vaulted</option>
+                                    <option>Monitoring</option>
+                                    <option>Target Set</option>
+                                    <option>Listed</option>
+                                </select>
+                            </label>
+                        </div>
+
+                        <div id="thumbnail-gallery-section" class="hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 p-6 shadow-sm">
+                            <div class="mb-4">
+                                <p class="text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Images</p>
+                                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Thumbnail Gallery</h3>
+                            </div>
+                            <div id="thumbnail-gallery" class="flex flex-wrap gap-3"></div>
+                        </div>
+                    </section>
+
+                    <section class="col-span-2 space-y-6">
+                        <div class="rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 p-6 shadow-sm">
+                            <div class="mb-4">
+                                <p class="text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Pricing</p>
+                                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Detailed Pricing Chart</h3>
+                            </div>
+                            <div class="h-96 rounded-xl border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900 p-4">
+                                <canvas id="asset-chart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-6">
+                            <div class="col-span-2 rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 p-6 shadow-sm">
+                                <div class="mb-4 flex items-center justify-between gap-4">
+                                    <div>
+                                        <p class="text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Market Data</p>
+                                        <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Market Comparables</h3>
+                                    </div>
+                                    <div class="flex items-center gap-3">
+                                        <button
+                                            id="log-new-comp-button"
+                                            type="button"
+                                            class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
+                                        >
+                                            Log New Comp
+                                        </button>
+                                        <button
+                                            id="generate-comp-button"
+                                            type="button"
+                                            class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-100"
+                                        >
+                                            Generate Comp (AI)
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+                                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+                                        <thead class="bg-gray-50 dark:bg-gray-900">
+                                            <tr>
+                                                <th class="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-400">Date</th>
+                                                <th class="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-400">Marketplace</th>
+                                                <th class="px-4 py-3 text-right font-semibold text-gray-600 dark:text-gray-400">Sale Price</th>
+                                                <th class="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-400">Notes</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="comparables-table-body" class="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <div class="rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 p-6 shadow-sm">
+                                <div class="mb-4 flex items-center justify-between gap-3">
+                                    <button id="asset-news-trigger" type="button" class="block text-left">
+                                        <p class="text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Signals</p>
+                                        <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Asset News & Alerts</h3>
+                                    </button>
+                                    <div class="flex items-center gap-3">
+                                        <button
+                                            id="log-news-button"
+                                            type="button"
+                                            class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
+                                        >
+                                            Log News
+                                        </button>
+                                        <button
+                                            id="generate-news-button"
+                                            type="button"
+                                            class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-100"
+                                        >
+                                            Generate News
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="asset-news-list" class="space-y-3 overflow-y-auto text-sm text-gray-600 dark:text-gray-300"></div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            <div id="view-analytics" class="hidden h-full flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 p-6">
+                <div class="mx-auto w-full max-w-7xl">
+                    <button
+                        type="button"
+                        data-view-target="view-dashboard"
+                        class="view-nav mb-4 self-start text-sm font-medium text-gray-500 transition hover:text-indigo-600"
+                    >
+                        Back to Dashboard
+                    </button>
+
+                    <div class="mb-6">
+                        <p class="text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Analytics</p>
+                        <h2 class="text-3xl font-bold text-gray-900 dark:text-white">Collection Intelligence</h2>
+                    </div>
+
+                    <div class="mb-6 grid gap-4 md:grid-cols-3">
+                        <div>
+                            <label for="analytics-category-filter" class="mb-2 block text-sm font-medium text-gray-700">Filter by Category</label>
+                            <select
+                                id="analytics-category-filter"
+                                class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                            >
+                                <option value="all">All Categories</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="analytics-status-filter" class="mb-2 block text-sm font-medium text-gray-700">Filter by Status</label>
+                            <select
+                                id="analytics-status-filter"
+                                class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                            >
+                                <option value="all">All Statuses</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="analytics-timeframe-filter" class="mb-2 block text-sm font-medium text-gray-700">Timeframe</label>
+                            <select
+                                id="analytics-timeframe-filter"
+                                class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                            >
+                                <option value="30" selected>30 Days</option>
+                                <option value="60">60 Days</option>
+                                <option value="90">90 Days</option>
+                                <option value="180">180 Days</option>
+                                <option value="365">1 Year</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="grid gap-6 lg:grid-cols-2">
+                        <div class="rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 p-6 shadow-sm">
+                            <div class="mb-4">
+                                <p class="text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Portfolio Mix</p>
+                                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Category Distribution</h3>
+                            </div>
+                            <div class="h-80">
+                                <canvas id="analytics-category-chart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 p-6 shadow-sm">
+                            <div class="mb-4">
+                                <p class="text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Performance</p>
+                                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Top Movers (ROI %)</h3>
+                            </div>
+                            <div class="h-80">
+                                <canvas id="analytics-status-chart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 p-6 shadow-sm lg:col-span-2">
+                            <div class="mb-4">
+                                <p class="text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Trend Analysis</p>
+                                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Interactive Asset Comparison</h3>
+                            </div>
+                            <div class="min-h-[400px] h-[28rem]">
+                                <canvas id="analytics-trend-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-alerts" class="hidden h-full flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 p-6">
+                <div class="mx-auto w-full max-w-5xl">
+                    <div class="mb-8">
+                        <p class="text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Alerts</p>
+                        <h2 class="text-3xl font-bold text-gray-900 dark:text-white">Market Alerts History</h2>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div class="rounded-xl border border-gray-200 bg-white p-5 text-sm text-gray-700 shadow-sm">
+                            Charizard #4 crossed your 30-day high watermark.
+                            <a href="#" class="text-indigo-600 hover:underline">[Source: Heritage Auctions]</a>
+                        </div>
+                        <div class="rounded-xl border border-gray-200 bg-white p-5 text-sm text-gray-700 shadow-sm">
+                            Rolex dealer spreads tightened after two strong regional comps.
+                            <a href="#" class="text-indigo-600 hover:underline">[Source: Chrono24]</a>
+                        </div>
+                        <div class="rounded-xl border border-gray-200 bg-white p-5 text-sm text-gray-700 shadow-sm">
+                            Game Boy Advance SP median ask moved 8% higher week over week.
+                            <a href="#" class="text-indigo-600 hover:underline">[Source: eBay Sold]</a>
+                        </div>
+                        <div class="rounded-xl border border-gray-200 bg-white p-5 text-sm text-gray-700 shadow-sm">
+                            Walnut credenza saves accelerated after a design influencer feature.
+                            <a href="#" class="text-indigo-600 hover:underline">[Source: Facebook Marketplace]</a>
+                        </div>
+                        <div class="rounded-xl border border-gray-200 bg-white p-5 text-sm text-gray-700 shadow-sm">
+                            Vintage TCG liquidity improved across premium graded inventory.
+                            <a href="#" class="text-indigo-600 hover:underline">[Source: Goldin]</a>
+                        </div>
+                        <div class="rounded-xl border border-gray-200 bg-white p-5 text-sm text-gray-700 shadow-sm">
+                            Decor category sell-through slowed slightly despite stronger impression volume.
+                            <a href="#" class="text-indigo-600 hover:underline">[Source: Chairish]</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-history" class="hidden flex-1 overflow-y-auto bg-gray-50 p-6 dark:bg-gray-900">
+                <div class="mx-auto w-full max-w-5xl">
+                    <div class="mb-8">
+                        <p class="text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">System History</p>
+                        <h2 class="text-3xl font-bold text-gray-900 dark:text-white">System & Agent Logs</h2>
+                    </div>
+
+                    <div id="system-history-list" class="space-y-4"></div>
+                </div>
+            </div>
+
+            <div id="view-settings" class="hidden h-full flex-1 overflow-y-auto bg-gray-50 p-6 dark:bg-gray-900">
+                <div class="mx-auto w-full max-w-5xl">
+                    <div class="mb-8">
+                        <p class="text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Settings</p>
+                        <h2 class="text-3xl font-bold text-gray-900 dark:text-white">Settings & Integrations</h2>
+                    </div>
+
+                    <div class="grid gap-6 lg:grid-cols-2">
+                        <section class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                            <div>
+                                <p class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">LLM Engine Configuration</p>
+                                <h3 class="mt-1 text-xl font-semibold text-gray-900 dark:text-white">API Keys (Saved Locally)</h3>
+                                <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Stored in your browser so your local backend can retrieve them later.</p>
+                            </div>
+                            <div class="mt-6 space-y-4">
+                                <div class="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900">
+                                    <p class="text-sm font-semibold text-gray-900 dark:text-white">Agent 1: Vision & Identification</p>
+                                    <div class="mt-4 space-y-4">
+                                        <div>
+                                            <label for="agent-1-provider" class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Provider</label>
+                                            <select
+                                                id="agent-1-provider"
+                                                class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                                            >
+                                                <option value="OpenAI">OpenAI</option>
+                                                <option value="Anthropic">Anthropic</option>
+                                                <option value="Google Gemini">Google Gemini</option>
+                                                <option value="Local SLM">Local SLM</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label for="agent-1-key" class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">API Key</label>
+                                            <input
+                                                id="agent-1-key"
+                                                type="password"
+                                                placeholder="Provider-specific key"
+                                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                                            >
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900">
+                                    <p class="text-sm font-semibold text-gray-900 dark:text-white">Agent 2: Market Data & Scraping</p>
+                                    <div class="mt-4 space-y-4">
+                                        <div>
+                                            <label for="agent-2-provider" class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Provider</label>
+                                            <select
+                                                id="agent-2-provider"
+                                                class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                                            >
+                                                <option value="OpenAI">OpenAI</option>
+                                                <option value="Anthropic">Anthropic</option>
+                                                <option value="Google Gemini">Google Gemini</option>
+                                                <option value="Local SLM">Local SLM</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label for="agent-2-key" class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">API Key</label>
+                                            <input
+                                                id="agent-2-key"
+                                                type="password"
+                                                placeholder="Provider-specific key"
+                                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                                            >
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900">
+                                    <p class="text-sm font-semibold text-gray-900 dark:text-white">Agent 3: Speculation & Valuation</p>
+                                    <div class="mt-4 space-y-4">
+                                        <div>
+                                            <label for="agent-3-provider" class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Provider</label>
+                                            <select
+                                                id="agent-3-provider"
+                                                class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                                            >
+                                                <option value="OpenAI">OpenAI</option>
+                                                <option value="Anthropic">Anthropic</option>
+                                                <option value="Google Gemini">Google Gemini</option>
+                                                <option value="Local SLM">Local SLM</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label for="agent-3-key" class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">API Key</label>
+                                            <input
+                                                id="agent-3-key"
+                                                type="password"
+                                                placeholder="Provider-specific key"
+                                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                                            >
+                                        </div>
+                                    </div>
+                                </div>
+                                <button
+                                    id="save-settings-button"
+                                    type="button"
+                                    class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
+                                >
+                                    Save Keys
+                                </button>
+                            </div>
+                        </section>
+
+                        <section class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                            <div>
+                                <p class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Marketplace Integrations</p>
+                                <h3 class="mt-1 text-xl font-semibold text-gray-900 dark:text-white">Connected Seller Accounts</h3>
+                                <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Provide your storefront URLs for agent-driven automated listings.</p>
+                            </div>
+                            <div class="mt-6 space-y-4">
+                                <div>
+                                    <label for="ebay-store-url" class="mb-2 block text-sm font-medium text-gray-700">eBay Store URL</label>
+                                    <input
+                                        id="ebay-store-url"
+                                        type="text"
+                                        placeholder="https://www.ebay.com/usr/your-store"
+                                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                                    >
+                                </div>
+                                <div>
+                                    <label for="facebook-profile-url" class="mb-2 block text-sm font-medium text-gray-700">Facebook Marketplace Profile URL</label>
+                                    <input
+                                        id="facebook-profile-url"
+                                        type="text"
+                                        placeholder="https://www.facebook.com/marketplace/profile/..."
+                                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                                    >
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                            <div>
+                                <p class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Data Management</p>
+                                <h3 class="mt-1 text-xl font-semibold text-gray-900 dark:text-white">Local Collection Storage</h3>
+                                <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Back up or restore your local collection snapshot at any time.</p>
+                            </div>
+                            <div class="mt-6 flex flex-wrap gap-3">
+                                <button
+                                    id="download-collection-data"
+                                    type="button"
+                                    class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
+                                >
+                                    Download Collection Data
+                                </button>
+                                <button
+                                    id="upload-collection-data"
+                                    type="button"
+                                    class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-100"
+                                >
+                                    Upload Collection Data
+                                </button>
+                                <input id="upload-collection-file" type="file" accept="application/json" class="hidden">
+                            </div>
+                            <div class="mt-8 rounded-xl border border-red-200 bg-red-50 p-5 dark:border-red-800/50 dark:bg-red-900/10">
+                                <p class="text-sm font-semibold uppercase tracking-wide text-red-600 dark:text-red-400">Danger Zone</p>
+                                <h4 class="mt-1 text-lg font-semibold text-red-600 dark:text-red-400">Wipe All Local Data</h4>
+                                <p class="mt-2 text-sm text-red-600 dark:text-red-400">Delete saved assets, system logs, and locally stored integration settings from this browser.</p>
+                                <button
+                                    id="wipe-local-data-button"
+                                    type="button"
+                                    class="mt-4 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-500"
+                                >
+                                    Wipe All Local Data
+                                </button>
+                            </div>
+                        </section>
+
+                        <section class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                            <div>
+                                <p class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">UI Preferences</p>
+                                <h3 class="mt-1 text-xl font-semibold text-gray-900 dark:text-white">Display</h3>
+                            </div>
+                            <div class="mt-6 flex items-center justify-between">
+                                <div>
+                                    <p class="font-medium text-gray-900 dark:text-white">Dark Mode</p>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400">Prepare the interface for a future alternate theme.</p>
+                                </div>
+                                <button
+                                    id="dark-mode-toggle"
+                                    type="button"
+                                    class="flex h-7 w-12 items-center rounded-full bg-gray-300 px-1 transition dark:bg-gray-600"
+                                >
+                                    <span id="dark-mode-toggle-knob" class="h-5 w-5 rounded-full bg-white shadow-sm transition"></span>
+                                </button>
+                            </div>
+                        </section>
+
+                        <section class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800 lg:col-span-2">
+                            <div>
+                                <p class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Preferences & Localization</p>
+                                <h3 class="mt-1 text-xl font-semibold text-gray-900 dark:text-white">Global App Behavior</h3>
+                            </div>
+                            <div class="mt-6 grid gap-6 md:grid-cols-2">
+                                <div>
+                                    <label for="base-currency" class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Base Currency</label>
+                                    <select
+                                        id="base-currency"
+                                        class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                                    >
+                                        <option value="USD">USD</option>
+                                        <option value="EUR">EUR</option>
+                                        <option value="GBP">GBP</option>
+                                        <option value="CAD">CAD</option>
+                                    </select>
+                                </div>
+                                <div class="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900">
+                                    <div>
+                                        <p class="font-medium text-gray-900 dark:text-white">Conservative Valuation Mode</p>
+                                        <p class="text-sm text-gray-500 dark:text-gray-400">Use the 25th percentile of comps for estimates.</p>
+                                    </div>
+                                    <button
+                                        id="conservative-mode-toggle"
+                                        type="button"
+                                        class="flex h-7 w-12 items-center rounded-full bg-gray-300 px-1 transition dark:bg-gray-600"
+                                    >
+                                        <span id="conservative-mode-toggle-knob" class="h-5 w-5 rounded-full bg-white shadow-sm transition"></span>
+                                    </button>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            </div>
+
+            <button
+                id="chat-toggle"
+                type="button"
+                aria-label="Open chatbot"
+                class="absolute bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-600 text-sm font-bold uppercase tracking-wide text-white shadow-lg transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+            >
+                Chat
+            </button>
+
+            <div id="chat-drawer" class="hidden absolute bottom-20 right-8 z-50 flex h-[500px] w-96 flex-col rounded-xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800">
+                <div class="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700">
+                    <h3 class="font-semibold text-gray-900">Collection Assistant</h3>
+                    <button
+                        id="close-chat-drawer"
+                        type="button"
+                        aria-label="Close chat drawer"
+                        class="rounded-md p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
+                    >
+                        X
+                    </button>
+                </div>
+                <div class="flex-1 space-y-3 overflow-y-auto p-4">
+                    <div class="max-w-[85%] rounded-2xl rounded-tl-md bg-gray-100 px-4 py-3 text-sm text-gray-600 dark:bg-gray-900 dark:text-gray-300">
+                        How can I help you evaluate your collection today?
+                    </div>
+                </div>
+                <div class="border-t border-gray-200 p-4 dark:border-gray-700">
+                    <div class="flex items-center gap-3">
+                        <input
+                            type="text"
+                            placeholder="Ask about pricing, comps, or sell timing..."
+                            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                        >
+                        <button
+                            type="button"
+                            class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
+                        >
+                            Send
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="add-asset-modal" class="fixed inset-0 z-50 hidden bg-gray-900/50 p-6">
+        <div class="flex min-h-full items-center justify-center">
+            <div class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white shadow-2xl dark:bg-gray-800">
+                <div class="flex items-start justify-between border-b border-gray-200 p-6 dark:border-gray-700">
+                    <div>
+                        <h2 class="text-xl font-semibold text-gray-900">Add New Asset</h2>
+                        <p class="mt-1 text-sm text-gray-500">Capture the basics now and refine the AI-assisted details later.</p>
+                    </div>
+                    <button
+                        id="close-add-asset-modal"
+                        type="button"
+                        aria-label="Close add asset modal"
+                        class="rounded-md p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
+                    >
+                        X
+                    </button>
+                </div>
+
+                <form id="add-asset-form" class="space-y-6 p-6">
+                    <div class="grid gap-6 md:grid-cols-2">
+                        <div class="md:col-span-2">
+                            <label class="mb-2 block text-sm font-medium text-gray-700">Images</label>
+                            <label for="image-upload" class="flex min-h-40 cursor-pointer items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 px-6 text-center transition hover:border-indigo-400 hover:bg-indigo-50/40">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-700">Click to upload</p>
+                                    <p class="mt-1 text-sm text-gray-500">Front, back, labels, grading slab, or any identifying details.</p>
+                                </div>
+                            </label>
+                            <input id="image-upload" type="file" multiple accept="image/*" class="hidden">
+                            <p id="image-upload-status" class="mt-2 text-sm text-gray-500">No images selected</p>
+                        </div>
+
+                        <div class="md:col-span-2">
+                            <label for="asset-name-input" class="mb-2 block text-sm font-medium text-gray-700">Asset Name</label>
+                            <input
+                                id="asset-name-input"
+                                type="text"
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                                placeholder="Charizard #4 - Holographic"
+                            >
+                        </div>
+
+                        <div class="md:col-span-2">
+                            <label for="asset-description-input" class="mb-2 block text-sm font-medium text-gray-700">Description</label>
+                            <textarea
+                                id="asset-description-input"
+                                rows="4"
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                                placeholder="Add notes about the item, special markings, provenance, or recent grading details."
+                            ></textarea>
+                        </div>
+
+                        <div>
+                            <label for="asset-source-input" class="mb-2 block text-sm font-medium text-gray-700">Where did you get it?</label>
+                            <input
+                                id="asset-source-input"
+                                type="text"
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                                placeholder="Local card show"
+                            >
+                        </div>
+
+                        <div class="space-y-3">
+                            <div>
+                                <label for="asset-price-input" class="mb-2 block text-sm font-medium text-gray-700">Purchase Price <span class="text-xs font-normal text-gray-500">(Base USD)</span></label>
+                                <input
+                                    id="asset-price-input"
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                                    placeholder="250.00"
+                                >
+                            </div>
+                            <label class="flex items-center gap-2 text-sm text-gray-700">
+                                <input id="purchase-today-checkbox" type="checkbox" checked class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                <span>Purchased Today</span>
+                            </label>
+                            <div id="purchase-date-field" class="hidden">
+                                <label for="purchase-date-input" class="mb-2 block text-sm font-medium text-gray-700">Purchase Date</label>
+                                <input
+                                    id="purchase-date-input"
+                                    type="date"
+                                    class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                                >
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="owner-condition-input" class="mb-2 block text-sm font-medium text-gray-700">Describe the condition in your own words</label>
+                            <input
+                                id="owner-condition-input"
+                                type="text"
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                                placeholder="Light edge wear, glossy surface, centered well"
+                            >
+                        </div>
+
+                        <div>
+                            <label for="asset-type-input" class="mb-2 block text-sm font-medium text-gray-700">What is this item? (Asset Type)</label>
+                            <input
+                                id="asset-type-input"
+                                type="text"
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                                placeholder="Trading card, watch, sneaker, furniture piece"
+                            >
+                        </div>
+
+                        <div class="md:col-span-2">
+                            <label for="initial-status-select" class="mb-2 block text-sm font-medium text-gray-700">Initial Status</label>
+                            <select
+                                id="initial-status-select"
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                            >
+                                <option>Vaulted</option>
+                                <option>Monitoring</option>
+                                <option>Target Set</option>
+                                <option>Listed</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-end gap-3 border-t border-gray-200 pt-4">
+                        <button
+                            id="cancel-add-asset-modal"
+                            type="button"
+                            class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-100 hover:text-gray-900"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                        >
+                            Save Asset
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <button id="open-log-comp-modal-button" type="button" class="hidden">Open Log Comp Modal</button>
+    <div id="log-comp-modal" class="fixed inset-0 z-50 hidden bg-gray-900/50 p-6">
+        <div class="flex min-h-full items-center justify-center">
+            <div class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white shadow-2xl dark:bg-gray-800">
+                <div class="flex items-start justify-between border-b border-gray-200 p-6 dark:border-gray-700">
+                    <div>
+                        <h2 class="text-xl font-semibold text-gray-900">Log New Comparable</h2>
+                        <p class="mt-1 text-sm text-gray-500">Capture a market comp and let the profile update instantly.</p>
+                    </div>
+                    <button
+                        id="close-log-comp-modal"
+                        type="button"
+                        aria-label="Close log comp modal"
+                        class="rounded-md p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
+                    >
+                        X
+                    </button>
+                </div>
+
+                <form id="log-comp-form" class="space-y-6 p-6">
+                    <div class="grid gap-6 md:grid-cols-2">
+                        <div>
+                            <label for="comp-date-input" class="mb-2 block text-sm font-medium text-gray-700">Date</label>
+                            <input
+                                id="comp-date-input"
+                                type="date"
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                            >
+                        </div>
+                        <div>
+                            <label for="comp-marketplace-input" class="mb-2 block text-sm font-medium text-gray-700">Marketplace</label>
+                            <input
+                                id="comp-marketplace-input"
+                                type="text"
+                                placeholder="Heritage Auctions"
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                            >
+                        </div>
+                        <div class="md:col-span-2">
+                            <label for="comp-link-input" class="mb-2 block text-sm font-medium text-gray-700">URL/Link</label>
+                            <input
+                                id="comp-link-input"
+                                type="text"
+                                placeholder="https://example.com/listing"
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                            >
+                        </div>
+                        <div>
+                            <label for="comp-price-input" class="mb-2 block text-sm font-medium text-gray-700">Sale Price <span class="text-xs font-normal text-gray-500">(Base USD)</span></label>
+                            <input
+                                id="comp-price-input"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                            >
+                        </div>
+                        <div class="md:col-span-2">
+                            <label for="comp-notes-input" class="mb-2 block text-sm font-medium text-gray-700">Condition Details</label>
+                            <textarea
+                                id="comp-notes-input"
+                                rows="4"
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                                placeholder="PSA 8, strong centering, recent auction close"
+                            ></textarea>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-end gap-3 border-t border-gray-200 pt-4">
+                        <button
+                            id="cancel-log-comp-modal"
+                            type="button"
+                            class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-100 hover:text-gray-900"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500"
+                        >
+                            Save Comp
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="log-news-modal" class="fixed inset-0 z-50 hidden bg-gray-900/50 p-6">
+        <div class="flex min-h-full items-center justify-center">
+            <div class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white shadow-2xl dark:bg-gray-800">
+                <div class="flex items-start justify-between border-b border-gray-200 p-6 dark:border-gray-700">
+                    <div>
+                        <h2 class="text-xl font-semibold text-gray-900">Log News Event</h2>
+                        <p class="mt-1 text-sm text-gray-500">Capture a source or milestone tied to this asset.</p>
+                    </div>
+                    <button
+                        id="close-log-news-modal"
+                        type="button"
+                        aria-label="Close log news modal"
+                        class="rounded-md p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
+                    >
+                        X
+                    </button>
+                </div>
+
+                <form id="log-news-form" class="space-y-6 p-6">
+                    <div class="grid gap-6">
+                        <div>
+                            <label for="news-date-input" class="mb-2 block text-sm font-medium text-gray-700">Date</label>
+                            <input
+                                id="news-date-input"
+                                type="date"
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                            >
+                        </div>
+                        <div>
+                            <label for="news-source-input" class="mb-2 block text-sm font-medium text-gray-700">Website/Source</label>
+                            <input
+                                id="news-source-input"
+                                type="text"
+                                placeholder="Heritage Auctions"
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                            >
+                        </div>
+                        <div>
+                            <label for="news-description-input" class="mb-2 block text-sm font-medium text-gray-700">Article Description</label>
+                            <textarea
+                                id="news-description-input"
+                                rows="5"
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                                placeholder="Auction result, article summary, or market note"
+                            ></textarea>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-end gap-3 border-t border-gray-200 pt-4">
+                        <button
+                            id="cancel-log-news-modal"
+                            type="button"
+                            class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-100 hover:text-gray-900"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500"
+                        >
+                            Save News
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="update-asset-modal" class="fixed inset-0 z-50 hidden bg-gray-900/50 p-6">
+        <div class="flex min-h-full items-center justify-center">
+            <div class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white shadow-2xl dark:bg-gray-800">
+                <div class="flex items-start justify-between border-b border-gray-200 p-6 dark:border-gray-700">
+                    <div>
+                        <h2 class="text-xl font-semibold text-gray-900">Update Asset</h2>
+                        <p class="mt-1 text-sm text-gray-500">Append a ledger-style update without overwriting the base record.</p>
+                    </div>
+                    <button
+                        id="close-update-asset-modal"
+                        type="button"
+                        aria-label="Close update asset modal"
+                        class="rounded-md p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
+                    >
+                        X
+                    </button>
+                </div>
+
+                <form id="update-asset-form" class="space-y-6 p-6">
+                    <div class="grid gap-6">
+                        <div>
+                            <label for="update-description-input" class="mb-2 block text-sm font-medium text-gray-700">What changed about this asset?</label>
+                            <textarea
+                                id="update-description-input"
+                                rows="5"
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                                placeholder="Graded by PSA, restored drawer hardware, new provenance discovered..."
+                            ></textarea>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-end gap-3 border-t border-gray-200 pt-4">
+                        <button
+                            id="cancel-update-asset-modal"
+                            type="button"
+                            class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-100 hover:text-gray-900"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500"
+                        >
+                            Save Update
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const viewIds = ["view-dashboard", "view-asset-profile", "view-analytics", "view-alerts", "view-history", "view-settings"];
+        const exchangeRates = { USD: 1, EUR: 0.92, GBP: 0.79, CAD: 1.36 };
+        let currentCurrency = localStorage.getItem("appCurrency") || "USD";
+        const defaultInventoryData = [
+            {
+                id: 1,
+                category: "TCG",
+                name: "Charizard #4 - Holographic",
+                status: "Vaulted",
+                price: 485,
+                description: "Iconic Base Set Charizard with strong display appeal and a premium nostalgia factor that keeps it highly liquid.",
+                condition: "PSA 8 - Near Mint-Mint",
+                acquisitionSource: "Local card show",
+                images: [],
+                comparables: [
+                    { date: "2026-02-28", marketplace: "Goldin", price: 462, notes: "PSA 8" },
+                    { date: "2026-03-28", marketplace: "eBay Sold", price: 474, notes: "PSA 8" },
+                    { date: "2026-04-18", marketplace: "Heritage", price: 485, notes: "PSA 8" }
+                ],
+                news: [
+                    { date: "2026-02-28", source: "System", description: "Initially purchased at $485.00 from Local card show." },
+                    { date: "2026-04-18", source: "Heritage Auctions", description: "Comparable sale confirmed strong premium demand for PSA 8 examples." }
+                ]
+            },
+            {
+                id: 2,
+                category: "WATCH",
+                name: "Rolex Datejust 36",
+                status: "Monitoring",
+                price: 7420,
+                description: "Classic steel Datejust with steady demand, reliable comps, and strong dealer liquidity.",
+                condition: "Light surface wear, recently serviced",
+                acquisitionSource: "Estate dealer",
+                images: [],
+                comparables: [
+                    { date: "2026-02-16", marketplace: "Chrono24", price: 7190, notes: "Serviced" },
+                    { date: "2026-03-21", marketplace: "Dealer Sale", price: 7350, notes: "Very Good" },
+                    { date: "2026-04-19", marketplace: "Watch Forum", price: 7420, notes: "Very Good" }
+                ],
+                news: [
+                    { date: "2026-02-16", source: "System", description: "Initially purchased at $7,420.00 from Estate dealer." },
+                    { date: "2026-04-19", source: "Chrono24", description: "Dealer pricing tightened as recent service history boosted confidence." }
+                ]
+            },
+            {
+                id: 3,
+                category: "GBA",
+                name: "Game Boy Advance SP - Tribal Edition",
+                status: "Target Set",
+                price: 290,
+                description: "Niche handheld variant with a loyal buyer pool and a smaller but active comps trail.",
+                condition: "Minor shell wear, bright screen, tested",
+                acquisitionSource: "Online auction",
+                images: [],
+                comparables: [
+                    { date: "2026-02-10", marketplace: "eBay Sold", price: 248, notes: "Used" },
+                    { date: "2026-03-15", marketplace: "Mercari", price: 271, notes: "Used" },
+                    { date: "2026-04-12", marketplace: "Auction", price: 290, notes: "Tested" }
+                ],
+                news: [
+                    { date: "2026-02-10", source: "System", description: "Initially purchased at $290.00 from Online auction." },
+                    { date: "2026-04-12", source: "eBay Sold", description: "Recent handheld comps suggest renewed buyer interest in specialty variants." }
+                ]
+            },
+            {
+                id: 4,
+                category: "HOME",
+                name: "Mid-Century Walnut Credenza",
+                status: "Listed",
+                price: 1180,
+                description: "Warm walnut case piece with broad appeal for staging, storage, and mid-century interiors.",
+                condition: "Strong veneer, one repaired corner, clean interior",
+                acquisitionSource: "Local vintage shop",
+                images: [],
+                comparables: [
+                    { date: "2026-02-22", marketplace: "Chairish", price: 1090, notes: "Restored" },
+                    { date: "2026-03-30", marketplace: "Marketplace", price: 1145, notes: "Good" },
+                    { date: "2026-04-20", marketplace: "Vintage Store", price: 1180, notes: "Good" }
+                ],
+                news: [
+                    { date: "2026-02-22", source: "System", description: "Initially purchased at $1,180.00 from Local vintage shop." },
+                    { date: "2026-04-20", source: "Chairish", description: "Mid-century inventory stayed tight as designer demand remained elevated." }
+                ]
+            }
+        ];
+
+        let inventoryData = [];
+        let systemLogs = [];
+        function getDefaultSettingsData() {
+            return {
+                theme: "light",
+                baseCurrency: "USD",
+                conservativeValuationMode: false,
+                marketplaceIntegrations: {
+                    ebayStoreUrl: "",
+                    facebookMarketplaceUrl: ""
+                },
+                agents: {
+                    visionIdentification: { provider: "OpenAI", apiKey: "" },
+                    marketDataScraping: { provider: "OpenAI", apiKey: "" },
+                    speculationValuation: { provider: "OpenAI", apiKey: "" }
+                }
+            };
+        }
+
+        let settingsData = getDefaultSettingsData();
+        let currentActiveItemId = null;
+        let isSelectMode = false;
+        let editingAssetId = null;
+        let assetChart;
+        let macroChart;
+        let analyticsCategoryChart;
+        let analyticsStatusChart;
+        let analyticsTrendChart;
+
+        function saveData() {
+            localStorage.setItem("assetTrackData", JSON.stringify(inventoryData));
+            localStorage.setItem("systemLogs", JSON.stringify(systemLogs));
+        }
+
+        function saveSettings() {
+            localStorage.setItem("assetTrackKeys", JSON.stringify(settingsData));
+        }
+
+        function applyTheme(theme) {
+            const resolvedTheme = theme === "dark" ? "dark" : "light";
+            document.documentElement.classList.toggle("dark", resolvedTheme === "dark");
+            localStorage.setItem("assetTheme", resolvedTheme);
+            settingsData.theme = resolvedTheme;
+            const darkModeToggle = document.getElementById("dark-mode-toggle");
+            const darkModeToggleKnob = document.getElementById("dark-mode-toggle-knob");
+
+            if (darkModeToggle && darkModeToggleKnob) {
+                darkModeToggle.classList.toggle("bg-indigo-600", resolvedTheme === "dark");
+                darkModeToggle.classList.toggle("bg-gray-300", resolvedTheme !== "dark");
+                darkModeToggleKnob.classList.toggle("ml-auto", resolvedTheme === "dark");
+            }
+        }
+
+        function updateConservativeModeToggle() {
+            const toggle = document.getElementById("conservative-mode-toggle");
+            const knob = document.getElementById("conservative-mode-toggle-knob");
+            if (!toggle || !knob) {
+                return;
+            }
+
+            const isEnabled = Boolean(settingsData.conservativeValuationMode);
+            toggle.classList.toggle("bg-indigo-600", isEnabled);
+            toggle.classList.toggle("bg-gray-300", !isEnabled);
+            knob.classList.toggle("ml-auto", isEnabled);
+        }
+
+        function loadData() {
+            const storedData = localStorage.getItem("assetTrackData");
+
+            if (storedData) {
+                try {
+                    inventoryData = JSON.parse(storedData);
+                } catch (error) {
+                    inventoryData = [];
+                }
+            }
+
+            const storedSystemLogs = localStorage.getItem("systemLogs");
+
+            if (storedSystemLogs) {
+                try {
+                    systemLogs = JSON.parse(storedSystemLogs);
+                } catch (error) {
+                    systemLogs = [];
+                }
+            } else {
+                systemLogs = [];
+            }
+
+            const storedSettings = localStorage.getItem("assetTrackKeys");
+
+            if (storedSettings) {
+                try {
+                    settingsData = {
+                        ...getDefaultSettingsData(),
+                        ...JSON.parse(storedSettings)
+                    };
+                } catch (error) {
+                    settingsData = getDefaultSettingsData();
+                }
+            }
+
+            settingsData.marketplaceIntegrations = {
+                ...getDefaultSettingsData().marketplaceIntegrations,
+                ...(settingsData.marketplaceIntegrations || {})
+            };
+            settingsData.agents = {
+                ...getDefaultSettingsData().agents,
+                ...(settingsData.agents || {})
+            };
+            settingsData.agents.visionIdentification = {
+                ...getDefaultSettingsData().agents.visionIdentification,
+                ...(settingsData.agents.visionIdentification || {})
+            };
+            settingsData.agents.marketDataScraping = {
+                ...getDefaultSettingsData().agents.marketDataScraping,
+                ...(settingsData.agents.marketDataScraping || {})
+            };
+            settingsData.agents.speculationValuation = {
+                ...getDefaultSettingsData().agents.speculationValuation,
+                ...(settingsData.agents.speculationValuation || {})
+            };
+            currentCurrency = localStorage.getItem("appCurrency") || settingsData.baseCurrency || "USD";
+            settingsData.baseCurrency = currentCurrency;
+            // Always read theme from the dedicated key so stale values in the settings blob are ignored
+            settingsData.theme = localStorage.getItem("assetTheme") || "light";
+        }
+
+        function populateSettingsForm() {
+            const agent1Provider = document.getElementById("agent-1-provider");
+            const agent1Key = document.getElementById("agent-1-key");
+            const agent2Provider = document.getElementById("agent-2-provider");
+            const agent2Key = document.getElementById("agent-2-key");
+            const agent3Provider = document.getElementById("agent-3-provider");
+            const agent3Key = document.getElementById("agent-3-key");
+            const ebayInput = document.getElementById("ebay-store-url");
+            const facebookInput = document.getElementById("facebook-profile-url");
+            const baseCurrencySelect = document.getElementById("base-currency");
+
+            if (!agent1Provider || !agent1Key || !agent2Provider || !agent2Key || !agent3Provider || !agent3Key || !ebayInput || !facebookInput || !baseCurrencySelect) {
+                return;
+            }
+
+            agent1Provider.value = settingsData.agents.visionIdentification.provider || "OpenAI";
+            agent1Key.value = settingsData.agents.visionIdentification.apiKey || "";
+            agent2Provider.value = settingsData.agents.marketDataScraping.provider || "OpenAI";
+            agent2Key.value = settingsData.agents.marketDataScraping.apiKey || "";
+            agent3Provider.value = settingsData.agents.speculationValuation.provider || "OpenAI";
+            agent3Key.value = settingsData.agents.speculationValuation.apiKey || "";
+            ebayInput.value = settingsData.marketplaceIntegrations.ebayStoreUrl || "";
+            facebookInput.value = settingsData.marketplaceIntegrations.facebookMarketplaceUrl || "";
+            baseCurrencySelect.value = settingsData.baseCurrency || "USD";
+            applyTheme(settingsData.theme || "light");
+            updateConservativeModeToggle();
+        }
+
+        function formatCurrency(value) {
+            return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value || 0);
+        }
+
+        function formatPrice(baseUsdPrice) {
+            const convertedPrice = (baseUsdPrice || 0) * exchangeRates[currentCurrency];
+            return new Intl.NumberFormat("en-US", {
+                style: "currency",
+                currency: currentCurrency
+            }).format(convertedPrice);
+        }
+
+        function getStatusClasses(status) {
+            switch (status) {
+                case "Vaulted":
+                    return "bg-slate-100 text-slate-700";
+                case "Monitoring":
+                    return "bg-blue-100 text-blue-700";
+                case "Target Set":
+                    return "bg-amber-100 text-amber-700";
+                case "Listed":
+                    return "bg-emerald-100 text-emerald-700";
+                default:
+                    return "bg-gray-100 text-gray-700";
+            }
+        }
+
+        function sortComparablesByDate(comparables) {
+            comparables.sort((left, right) => new Date(left.date) - new Date(right.date));
+        }
+
+        function getLocalYMD(date = new Date()) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, "0");
+            const day = String(date.getDate()).padStart(2, "0");
+            return `${year}-${month}-${day}`;
+        }
+
+        function getLocalTimestamp(date = new Date()) {
+            return date.toLocaleString("en-US", {
+                year: "numeric",
+                month: "short",
+                day: "2-digit",
+                hour: "numeric",
+                minute: "2-digit"
+            });
+        }
+
+        function formatDateForInput(date) {
+            return getLocalYMD(date);
+        }
+
+        function getLastNWeekDates(count) {
+            const dates = [];
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            for (let index = count - 1; index >= 0; index -= 1) {
+                const date = new Date(today);
+                date.setDate(today.getDate() - index * 7);
+                dates.push(date);
+            }
+
+            return dates;
+        }
+
+        function getLastNDays(count) {
+            const dates = [];
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            for (let index = count - 1; index >= 0; index -= 1) {
+                const date = new Date(today);
+                date.setDate(today.getDate() - index);
+                dates.push(date);
+            }
+
+            return dates;
+        }
+
+        function getAssetValueAtDate(asset, targetDate) {
+            const comparables = [...(asset.comparables || [])];
+            sortComparablesByDate(comparables);
+            const targetTime = new Date(targetDate).getTime();
+            const applicable = comparables.filter((comp) => new Date(comp.date).getTime() <= targetTime);
+
+            if (applicable.length === 0) {
+                return 0;
+            }
+
+            return applicable[applicable.length - 1].price;
+        }
+
+        function getPortfolioValueAtDate(targetDate) {
+            return inventoryData.reduce((total, asset) => total + getAssetValueAtDate(asset, targetDate), 0);
+        }
+
+        function showView(targetId) {
+            viewIds.forEach((viewId) => {
+                const view = document.getElementById(viewId);
+                view.classList.toggle("hidden", viewId !== targetId);
+            });
+
+            setActiveNav(targetId);
+
+            if (targetId === "view-analytics") {
+                renderAnalytics();
+            }
+
+            if (targetId === "view-history") {
+                renderSystemHistory();
+            }
+        }
+
+        function getPrimaryImage(item) {
+            return item.images && item.images.length > 0 ? item.images[0] : "";
+        }
+
+        function getComparableSeries(item) {
+            const comparables = Array.isArray(item.comparables) && item.comparables.length > 0
+                ? [...item.comparables]
+                : [{ date: getLocalYMD(), marketplace: item.acquisitionSource || "Acquired", price: item.price, notes: item.condition || "Unknown" }];
+
+            sortComparablesByDate(comparables);
+
+            return {
+                labels: comparables.map((comp) => comp.date),
+                values: comparables.map((comp) => comp.price)
+            };
+        }
+
+        function renderMacroChart() {
+            const lookbackDates = getLastNWeekDates(10);
+            const labels = lookbackDates.map((date) => date.toLocaleDateString("en-US", { month: "short", day: "numeric" }));
+            const values = lookbackDates.map((date) => getPortfolioValueAtDate(date));
+
+            if (macroChart) {
+                macroChart.destroy();
+            }
+
+            macroChart = new Chart(document.getElementById("macro-chart"), {
+                type: "line",
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            data: values,
+                            borderColor: "#059669",
+                            backgroundColor: "rgba(5, 150, 105, 0.12)",
+                            fill: true,
+                            tension: 0.35,
+                            borderWidth: 3,
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            pointBackgroundColor: "#059669",
+                            pointBorderColor: "#ffffff",
+                            pointBorderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label(context) {
+                                    return ` ${formatPrice(context.parsed.y)}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: "#6b7280" }
+                        },
+                        y: {
+                            ticks: {
+                                color: "#6b7280",
+                                callback(value) {
+                                    return formatCurrency(value);
+                                }
+                            },
+                            grid: { color: "rgba(209, 213, 219, 0.55)" }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderAssetChart(item) {
+            const { labels, values } = getComparableSeries(item);
+
+            if (assetChart) {
+                assetChart.destroy();
+            }
+
+            assetChart = new Chart(document.getElementById("asset-chart"), {
+                type: "line",
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            data: values,
+                            borderColor: "#4f46e5",
+                            backgroundColor: "rgba(79, 70, 229, 0.10)",
+                            fill: true,
+                            tension: 0.4,
+                            borderWidth: 3,
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            pointBackgroundColor: "#4f46e5",
+                            pointBorderColor: "#ffffff",
+                            pointBorderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label(context) {
+                                    return ` ${formatPrice(context.parsed.y)}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: "#6b7280" }
+                        },
+                        y: {
+                            ticks: {
+                                color: "#6b7280",
+                                callback(value) {
+                                    return formatCurrency(value);
+                                }
+                            },
+                            grid: { color: "rgba(209, 213, 219, 0.55)" }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateSelectModeUI() {
+            document.getElementById("select-items-button").classList.toggle("hidden", isSelectMode);
+            document.getElementById("delete-selected-button").classList.toggle("hidden", !isSelectMode);
+            document.getElementById("sell-selected-button").classList.toggle("hidden", !isSelectMode);
+            document.getElementById("cancel-select-button").classList.toggle("hidden", !isSelectMode);
+        }
+
+        function renderHeader() {
+            const totalCollectionValue = inventoryData.reduce((sum, item) => sum + item.price, 0);
+            document.getElementById("collection-total").textContent = formatPrice(totalCollectionValue);
+            renderMacroChart();
+            renderDashboardAlerts();
+        }
+
+        function setActiveNav(viewId) {
+            const activeViewId = ["view-asset-profile", "view-alerts", "view-analytics"].includes(viewId)
+                ? "view-dashboard"
+                : viewId;
+            const navButtons = document.querySelectorAll("[data-sidebar-link]");
+
+            navButtons.forEach((button) => {
+                const isActive = button.getAttribute("data-sidebar-link") === activeViewId;
+                button.classList.toggle("bg-indigo-50", isActive);
+                button.classList.toggle("dark:bg-indigo-900/30", isActive);
+                button.classList.toggle("text-indigo-700", isActive);
+                button.classList.toggle("dark:text-indigo-300", isActive);
+                button.classList.toggle("font-medium", isActive);
+                button.classList.toggle("text-gray-600", !isActive);
+                button.classList.toggle("dark:text-gray-400", !isActive);
+                button.classList.toggle("hover:bg-gray-100", !isActive);
+                button.classList.toggle("dark:hover:bg-gray-800", !isActive);
+            });
+        }
+
+        function getAggregatedAlerts() {
+            return inventoryData.flatMap((asset) =>
+                (asset.news || []).map((newsItem) => ({
+                    assetId: asset.id,
+                    assetName: asset.name,
+                    date: newsItem.date,
+                    source: newsItem.source,
+                    description: newsItem.description,
+                    isUserUpdate: Boolean(newsItem.isUserUpdate)
+                }))
+            ).sort((left, right) => new Date(right.date) - new Date(left.date));
+        }
+
+        function renderDashboardAlerts() {
+            const alertsContainer = document.getElementById("dashboard-alerts-feed");
+            if (!alertsContainer) {
+                return;
+            }
+
+            const recentAlerts = getAggregatedAlerts().slice(0, 3);
+            alertsContainer.innerHTML = recentAlerts.length > 0
+                ? recentAlerts.map((alert) => `
+                    <div class="rounded-lg border ${alert.isUserUpdate ? "border-indigo-200 bg-indigo-50 dark:border-indigo-800 dark:bg-indigo-900/30" : "border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800"} p-4 text-sm text-gray-600 dark:text-gray-300">
+                        <p class="font-semibold text-gray-900 dark:text-white">${alert.assetName}</p>
+                        <p class="mt-1 text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">${alert.date} · ${alert.source}</p>
+                        <p class="mt-2">${alert.description}</p>
+                    </div>
+                `).join("")
+                : `
+                    <div class="rounded-lg border border-dashed border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-800 p-6 text-sm text-gray-500 dark:text-gray-400">
+                        No collection alerts yet. New asset news and queued agent updates will appear here.
+                    </div>
+                `;
+        }
+
+        function renderAlerts(filterId = null) {
+            const alertsContainer = document.querySelector("#view-alerts .space-y-4");
+            const aggregatedAlerts = getAggregatedAlerts();
+            const filteredAlerts = filterId === null
+                ? aggregatedAlerts
+                : aggregatedAlerts.filter((alert) => alert.assetId === filterId);
+
+            alertsContainer.innerHTML = filteredAlerts.length > 0
+                ? filteredAlerts.map((alert) => `
+                    <div class="rounded-xl border ${alert.isUserUpdate ? "border-indigo-200 bg-indigo-50 dark:border-indigo-800 dark:bg-indigo-900/30" : "border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"} p-5 text-sm text-gray-700 dark:text-gray-300 shadow-sm">
+                        <p class="flex items-center gap-2 font-semibold text-gray-900 dark:text-white">
+                            <span>${alert.assetName}</span>
+                            ${alert.isUserUpdate ? '<span class="rounded-full bg-indigo-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">Update</span>' : ""}
+                        </p>
+                        <p class="mt-1 text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">${alert.date}</p>
+                        <p class="mt-3">${alert.description}</p>
+                        <a href="#" class="mt-2 inline-block text-indigo-600 hover:underline">[Source: ${alert.source}]</a>
+                    </div>
+                `).join("")
+                : `
+                    <div class="rounded-xl border border-dashed border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-800 p-8 text-center text-sm text-gray-500 dark:text-gray-400 shadow-sm">
+                        No alert history is available for this asset yet.
+                    </div>
+                `;
+        }
+
+        function renderSystemHistory() {
+            const systemHistoryList = document.getElementById("system-history-list");
+            if (!systemHistoryList) {
+                return;
+            }
+
+            const orderedLogs = [...systemLogs].sort((left, right) => new Date(right.timestamp) - new Date(left.timestamp));
+            systemHistoryList.innerHTML = orderedLogs.length > 0
+                ? orderedLogs.map((log) => `
+                    <div class="rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 p-5 shadow-sm">
+                        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-gray-400 dark:text-gray-500">${log.timestampLabel || log.timestamp}</p>
+                        <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">${log.message}</p>
+                    </div>
+                `).join("")
+                : `
+                    <div class="rounded-xl border border-dashed border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-800 p-8 text-center text-sm text-gray-500 dark:text-gray-400 shadow-sm">
+                        No system activity has been logged yet.
+                    </div>
+                `;
+        }
+
+        function renderInventory() {
+            const inventoryList = document.getElementById("inventory-list");
+
+            updateSelectModeUI();
+
+            if (inventoryData.length === 0) {
+                inventoryList.innerHTML = `
+                    <div class="flex min-h-[28rem] flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-6 text-center shadow-sm">
+                        <div class="flex h-20 w-20 items-center justify-center rounded-full bg-indigo-50 dark:bg-indigo-900/40 text-3xl text-indigo-600 dark:text-indigo-400">+</div>
+                        <h3 class="mt-6 text-2xl font-semibold text-gray-900 dark:text-white">No assets tracked yet</h3>
+                        <p class="mt-2 max-w-md text-sm text-gray-500 dark:text-gray-400">Start your collection by adding an item, uploading a photo, and tracking its value over time.</p>
+                        <button
+                            id="empty-state-add-button"
+                            type="button"
+                            class="mt-6 rounded-lg bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500"
+                        >
+                            Add Your First Asset
+                        </button>
+                    </div>
+                `;
+
+                document.getElementById("empty-state-add-button").addEventListener("click", () => {
+                    document.getElementById("open-add-asset-modal").click();
+                });
+                return;
+            }
+
+            inventoryList.innerHTML = inventoryData.map((item) => `
+                <button
+                    type="button"
+                    class="asset-card flex w-full cursor-pointer items-center gap-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 text-left shadow-sm transition hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-indigo-300 hover:shadow-md"
+                    data-item-id="${item.id}"
+                >
+                    <div class="flex items-start gap-3">
+                        <input
+                            type="checkbox"
+                            class="${isSelectMode ? "" : "hidden "}asset-select-checkbox mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                            data-item-id="${item.id}"
+                        >
+                        <div class="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-700 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            ${getPrimaryImage(item) ? `<img src="${getPrimaryImage(item)}" alt="${item.name}" class="h-full w-full object-cover">` : item.category}
+                        </div>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <h3 class="truncate text-lg font-semibold text-gray-900 dark:text-white">${item.name}</h3>
+                        <span class="mt-2 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getStatusClasses(item.status)}">
+                            ${item.status}
+                        </span>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-2xl font-bold text-gray-900 dark:text-white">${formatPrice(item.price)}</p>
+                    </div>
+                </button>
+            `).join("");
+
+            inventoryList.querySelectorAll(".asset-card").forEach((card) => {
+                card.addEventListener("click", () => {
+                    if (isSelectMode) {
+                        return;
+                    }
+
+                    const itemId = Number(card.getAttribute("data-item-id"));
+                    openAssetProfile(itemId);
+                });
+            });
+
+            inventoryList.querySelectorAll(".asset-select-checkbox").forEach((checkbox) => {
+                checkbox.addEventListener("click", (event) => {
+                    event.stopPropagation();
+                });
+            });
+        }
+
+        function renderComparablesTable(item) {
+            const comparablesTableBody = document.getElementById("comparables-table-body");
+            const comparables = [...(item.comparables || [])];
+            sortComparablesByDate(comparables);
+
+            comparablesTableBody.innerHTML = comparables.map((comp) => `
+                <tr class="dark:border-gray-700">
+                    <td class="px-4 py-3 text-gray-600 dark:text-gray-400">${comp.date}</td>
+                    <td class="px-4 py-3 text-gray-900 dark:text-white">${comp.marketplace}</td>
+                    <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">${formatPrice(comp.price)}</td>
+                    <td class="px-4 py-3 text-gray-600 dark:text-gray-400">${comp.notes || "-"}</td>
+                </tr>
+            `).join("");
+        }
+
+        function renderAssetNews(item) {
+            const assetNewsList = document.getElementById("asset-news-list");
+            const newsItems = [...(item.news || [])];
+            newsItems.sort((left, right) => new Date(left.date) - new Date(right.date));
+
+            assetNewsList.innerHTML = newsItems.length > 0
+                ? newsItems.map((newsItem, index) => `
+                    <div class="overflow-hidden rounded-lg border ${newsItem.isUserUpdate ? "border-indigo-200 bg-indigo-50 dark:border-indigo-800 dark:bg-indigo-900/30" : "border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800"}">
+                        <button type="button" class="asset-news-toggle flex w-full items-center justify-between px-4 py-3 text-left font-medium text-gray-900 dark:text-white" data-news-index="${index}">
+                            <span class="flex items-center gap-2">
+                                <span>${newsItem.date} - ${newsItem.source}</span>
+                                ${newsItem.isUserUpdate ? '<span class="rounded-full bg-indigo-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">Update</span>' : ""}
+                            </span>
+                            <span class="text-gray-400 dark:text-gray-500">+</span>
+                        </button>
+                        <div class="asset-news-body hidden border-t border-gray-200 dark:border-gray-700 px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
+                            ${newsItem.description}
+                        </div>
+                    </div>
+                `).join("")
+                : `
+                    <div class="rounded-lg border border-dashed border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-800 p-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                        No news logged for this asset yet.
+                    </div>
+                `;
+
+            assetNewsList.querySelectorAll(".asset-news-toggle").forEach((toggle) => {
+                toggle.addEventListener("click", () => {
+                    const body = toggle.nextElementSibling;
+                    const indicator = toggle.querySelector("span:last-child");
+                    const isHidden = body.classList.contains("hidden");
+                    body.classList.toggle("hidden", !isHidden);
+                    indicator.textContent = isHidden ? "-" : "+";
+                });
+            });
+        }
+
+        function populateAssetProfile(item) {
+            const assetProfileImage = document.getElementById("asset-profile-image");
+            const assetImagePlaceholder = document.getElementById("asset-image-placeholder");
+            const thumbnailGallerySection = document.getElementById("thumbnail-gallery-section");
+            const thumbnailGallery = document.getElementById("thumbnail-gallery");
+
+            document.getElementById("asset-profile-title").textContent = item.name;
+            document.getElementById("asset-profile-description").innerHTML = `
+                <p><strong>Description:</strong> ${item.description || "No description entered for this asset yet."}</p>
+                <p class="mt-4"><strong>Category:</strong> ${item.category}</p>
+                <p class="mt-2"><strong>Condition:</strong> ${item.condition || "Unspecified"}</p>
+                <label class="mt-4 block">
+                    <strong>Status:</strong>
+                    <select
+                        id="asset-status-select"
+                        class="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    >
+                        <option>Vaulted</option>
+                        <option>Monitoring</option>
+                        <option>Target Set</option>
+                        <option>Listed</option>
+                    </select>
+                </label>
+            `;
+            document.getElementById("asset-status-select").value = item.status;
+            document.getElementById("asset-status-select").addEventListener("change", (event) => {
+                item.status = event.target.value;
+                saveData();
+                renderInventory();
+                renderHeader();
+                renderAnalytics();
+            });
+
+            if (getPrimaryImage(item)) {
+                assetProfileImage.src = getPrimaryImage(item);
+                assetProfileImage.classList.remove("hidden");
+                assetImagePlaceholder.classList.add("hidden");
+            } else {
+                assetProfileImage.removeAttribute("src");
+                assetProfileImage.classList.add("hidden");
+                assetImagePlaceholder.classList.remove("hidden");
+                assetImagePlaceholder.textContent = `[ ${item.category} Image Placeholder ]`;
+            }
+
+            if (item.images && item.images.length > 1) {
+                thumbnailGallerySection.classList.remove("hidden");
+                thumbnailGallery.innerHTML = item.images.map((imageSrc, index) => `
+                    <button
+                        type="button"
+                        class="asset-thumbnail h-16 w-16 overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700"
+                        data-image-index="${index}"
+                    >
+                        <img src="${imageSrc}" alt="${item.name} thumbnail ${index + 1}" class="h-full w-full object-cover">
+                    </button>
+                `).join("");
+
+                thumbnailGallery.querySelectorAll(".asset-thumbnail").forEach((thumbnail) => {
+                    thumbnail.addEventListener("click", () => {
+                        const imageIndex = Number(thumbnail.getAttribute("data-image-index"));
+                        assetProfileImage.src = item.images[imageIndex];
+                        assetProfileImage.classList.remove("hidden");
+                        assetImagePlaceholder.classList.add("hidden");
+                    });
+                });
+            } else {
+                thumbnailGallerySection.classList.add("hidden");
+                thumbnailGallery.innerHTML = "";
+            }
+
+            renderComparablesTable(item);
+            renderAssetChart(item);
+            renderAssetNews(item);
+        }
+
+        function openAssetProfile(itemId) {
+            const item = inventoryData.find((entry) => entry.id === itemId);
+            if (!item) {
+                return;
+            }
+
+            currentActiveItemId = itemId;
+            populateAssetProfile(item);
+            showView("view-asset-profile");
+        }
+
+        function renderAnalytics() {
+            const categoryFilter = document.getElementById("analytics-category-filter");
+            const statusFilter = document.getElementById("analytics-status-filter");
+            const timeframeFilter = document.getElementById("analytics-timeframe-filter");
+            const currentCategoryFilter = categoryFilter.value || "all";
+            const currentStatusFilter = statusFilter.value || "all";
+            const currentTimeframeFilter = timeframeFilter.value || "30";
+            const categories = [...new Set(inventoryData.map((item) => item.category))];
+            const statuses = ["Vaulted", "Monitoring", "Target Set", "Listed"];
+
+            categoryFilter.innerHTML = `<option value="all">All Categories</option>${categories.map((category) => `<option value="${category}">${category}</option>`).join("")}`;
+            statusFilter.innerHTML = `<option value="all">All Statuses</option>${statuses.map((status) => `<option value="${status}">${status}</option>`).join("")}`;
+            categoryFilter.value = categories.includes(currentCategoryFilter) ? currentCategoryFilter : "all";
+            statusFilter.value = statuses.includes(currentStatusFilter) ? currentStatusFilter : "all";
+            timeframeFilter.value = ["30", "60", "90", "180", "365"].includes(currentTimeframeFilter) ? currentTimeframeFilter : "30";
+
+            const filteredInventory = inventoryData.filter((item) => {
+                const categoryMatch = categoryFilter.value === "all" || item.category === categoryFilter.value;
+                const statusMatch = statusFilter.value === "all" || item.status === statusFilter.value;
+                return categoryMatch && statusMatch;
+            });
+            const isCategoryDrillDown = categoryFilter.value !== "all";
+            const pieChartLabels = isCategoryDrillDown
+                ? filteredInventory.map((item) => item.name)
+                : Object.keys(filteredInventory.reduce((accumulator, item) => {
+                    accumulator[item.category] = (accumulator[item.category] || 0) + item.price;
+                    return accumulator;
+                }, {}));
+            const pieChartValues = isCategoryDrillDown
+                ? filteredInventory.map((item) => item.price)
+                : Object.values(filteredInventory.reduce((accumulator, item) => {
+                    accumulator[item.category] = (accumulator[item.category] || 0) + item.price;
+                    return accumulator;
+                }, {}));
+            const pieChartTitle = isCategoryDrillDown
+                ? `Value Distribution: ${categoryFilter.value}`
+                : "Collection by Category";
+
+            if (analyticsCategoryChart) {
+                analyticsCategoryChart.destroy();
+            }
+            analyticsCategoryChart = new Chart(document.getElementById("analytics-category-chart"), {
+                type: "pie",
+                data: {
+                    labels: pieChartLabels.length > 0 ? pieChartLabels : ["No Data"],
+                    datasets: [
+                        {
+                            data: pieChartValues.length > 0 ? pieChartValues : [1],
+                            backgroundColor: ["#4f46e5", "#059669", "#d97706", "#2563eb", "#7c3aed", "#dc2626"]
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: "bottom" },
+                        title: {
+                            display: true,
+                            text: pieChartTitle
+                        }
+                    }
+                }
+            });
+
+            const topMovers = [...filteredInventory]
+                .map((item) => {
+                    const comparables = [...(item.comparables || [])];
+                    sortComparablesByDate(comparables);
+                    const firstComparable = comparables[0];
+                    const initialPrice = firstComparable ? firstComparable.price : item.price;
+                    const roi = initialPrice > 0 ? ((item.price - initialPrice) / initialPrice) * 100 : 0;
+
+                    return {
+                        name: item.name,
+                        roi
+                    };
+                })
+                .sort((left, right) => Math.abs(right.roi) - Math.abs(left.roi))
+                .slice(0, 5);
+            if (analyticsStatusChart) {
+                analyticsStatusChart.destroy();
+            }
+            analyticsStatusChart = new Chart(document.getElementById("analytics-status-chart"), {
+                type: "bar",
+                data: {
+                    labels: topMovers.length > 0 ? topMovers.map((item) => item.name) : ["No Data"],
+                    datasets: [
+                        {
+                            data: topMovers.length > 0 ? topMovers.map((item) => item.roi) : [0],
+                            backgroundColor: topMovers.length > 0
+                                ? topMovers.map((item) => item.roi >= 0 ? "#059669" : "#dc2626")
+                                : ["#94a3b8"]
+                        }
+                    ]
+                },
+                options: {
+                    indexAxis: "y",
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        title: {
+                            display: true,
+                            text: "Top Movers (ROI %)"
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label(context) {
+                                    return ` ${context.parsed.x.toFixed(2)}%`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback(value) {
+                                    return `${value}%`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            const trendCandidates = filteredInventory.slice(0, 5);
+            const lookbackWindow = Number.parseInt(timeframeFilter.value, 10) || 30;
+            const lookbackDates = getLastNDays(lookbackWindow);
+            if (analyticsTrendChart) {
+                analyticsTrendChart.destroy();
+            }
+            analyticsTrendChart = new Chart(document.getElementById("analytics-trend-chart"), {
+                type: "line",
+                data: {
+                    labels: lookbackDates.map((date) => date.toLocaleDateString("en-US", { month: "short", day: "numeric" })),
+                    datasets: trendCandidates.map((item, index) => {
+                        const colors = ["#4f46e5", "#059669", "#d97706", "#2563eb", "#dc2626"];
+
+                        return {
+                            label: item.name,
+                            data: lookbackDates.map((date) => getAssetValueAtDate(item, date)),
+                            borderColor: colors[index % colors.length],
+                            backgroundColor: colors[index % colors.length],
+                            tension: 0.35,
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        };
+                    })
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: "bottom",
+                            labels: {
+                                usePointStyle: true,
+                                boxWidth: 10
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label(context) {
+                                    return ` ${context.dataset.label}: ${formatPrice(context.parsed.y)}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: "category",
+                            ticks: { color: "#6b7280" }
+                        },
+                        y: {
+                            ticks: {
+                                color: "#6b7280",
+                                callback(value) {
+                                    return formatCurrency(value);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function setupViewNavigation() {
+            const navButtons = document.querySelectorAll("[data-view-target]");
+
+            navButtons.forEach((button) => {
+                button.addEventListener("click", () => {
+                    const targetId = button.getAttribute("data-view-target");
+                    showView(targetId);
+                });
+            });
+        }
+
+        function setupHomeNavigation() {
+            document.getElementById("logo-home-button").addEventListener("click", () => {
+                showView("view-dashboard");
+            });
+        }
+
+        function setupAddAssetModal() {
+            const modal = document.getElementById("add-asset-modal");
+            const openButton = document.getElementById("open-add-asset-modal");
+            const closeButton = document.getElementById("close-add-asset-modal");
+            const cancelButton = document.getElementById("cancel-add-asset-modal");
+            const addAssetForm = document.getElementById("add-asset-form");
+            const imageUploadInput = document.getElementById("image-upload");
+            const imageUploadStatus = document.getElementById("image-upload-status");
+            const purchaseTodayCheckbox = document.getElementById("purchase-today-checkbox");
+            const purchaseDateField = document.getElementById("purchase-date-field");
+            const modalTitle = modal.querySelector("h2");
+            const submitButton = addAssetForm.querySelector('button[type="submit"]');
+
+            imageUploadInput.addEventListener("change", () => {
+                const fileCount = imageUploadInput.files ? imageUploadInput.files.length : 0;
+                imageUploadStatus.textContent = fileCount > 0 ? `${fileCount} image(s) selected` : "No images selected";
+            });
+
+            purchaseTodayCheckbox.addEventListener("change", () => {
+                purchaseDateField.classList.toggle("hidden", purchaseTodayCheckbox.checked);
+            });
+
+            function openModal() {
+                document.getElementById("purchase-date-input").value = getLocalYMD();
+                modal.classList.remove("hidden");
+            }
+
+            function closeModal() {
+                addAssetForm.reset();
+                imageUploadStatus.textContent = "No images selected";
+                purchaseDateField.classList.add("hidden");
+                purchaseTodayCheckbox.checked = true;
+                editingAssetId = null;
+                modalTitle.textContent = "Add New Asset";
+                submitButton.textContent = "Save Asset";
+                modal.classList.add("hidden");
+            }
+
+            function readFilesAsDataUrls(files) {
+                return Promise.all(Array.from(files).map((file) => new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = () => reject(reader.error);
+                    reader.readAsDataURL(file);
+                })));
+            }
+
+            openButton.addEventListener("click", openModal);
+            closeButton.addEventListener("click", closeModal);
+            cancelButton.addEventListener("click", closeModal);
+            addAssetForm.addEventListener("submit", async (event) => {
+                event.preventDefault();
+
+                const name = document.getElementById("asset-name-input").value.trim();
+                const category = document.getElementById("asset-type-input").value.trim();
+                const status = document.getElementById("initial-status-select").value;
+                const purchasePriceValue = document.getElementById("asset-price-input").value;
+                const condition = document.getElementById("owner-condition-input").value.trim();
+                const acquisitionSource = document.getElementById("asset-source-input").value.trim();
+                const description = document.getElementById("asset-description-input").value.trim();
+                const parsedPrice = parseFloat(purchasePriceValue);
+                const images = imageUploadInput.files ? await readFilesAsDataUrls(imageUploadInput.files) : [];
+                const selectedDate = purchaseTodayCheckbox.checked
+                    ? getLocalYMD()
+                    : document.getElementById("purchase-date-input").value;
+
+                if (!name || !category || Number.isNaN(parsedPrice) || !selectedDate) {
+                    return;
+                }
+
+                if (editingAssetId !== null) {
+                    const existingItem = inventoryData.find((item) => item.id === editingAssetId);
+                    if (!existingItem) {
+                        return;
+                    }
+
+                    existingItem.category = category.toUpperCase();
+                    existingItem.name = name;
+                    existingItem.status = status;
+                    existingItem.description = description;
+                    existingItem.condition = condition;
+                    existingItem.acquisitionSource = acquisitionSource;
+                    existingItem.price = parsedPrice;
+                    if (images.length > 0) {
+                        existingItem.images = images;
+                    }
+
+                    if (!Array.isArray(existingItem.comparables)) {
+                        existingItem.comparables = [];
+                    }
+
+                    if (!Array.isArray(existingItem.news)) {
+                        existingItem.news = [];
+                    }
+
+                    if (existingItem.comparables.length === 0) {
+                        existingItem.comparables.push({
+                            date: selectedDate,
+                            marketplace: acquisitionSource || "Direct acquisition",
+                            price: parsedPrice,
+                            notes: condition || "Unspecified"
+                        });
+                    } else {
+                        existingItem.comparables[0].date = selectedDate;
+                        existingItem.comparables[0].marketplace = acquisitionSource || "Direct acquisition";
+                        existingItem.comparables[0].price = parsedPrice;
+                        existingItem.comparables[0].notes = condition || "Unspecified";
+                    }
+
+                    if (existingItem.news.length === 0) {
+                        existingItem.news.push({
+                            date: selectedDate,
+                            source: "System",
+                            description: `Initially purchased at ${formatCurrency(parsedPrice)} from ${acquisitionSource || "Unknown source"}.`
+                        });
+                    } else {
+                        existingItem.news[0].date = selectedDate;
+                        existingItem.news[0].source = "System";
+                        existingItem.news[0].description = `Initially purchased at ${formatCurrency(parsedPrice)} from ${acquisitionSource || "Unknown source"}.`;
+                    }
+
+                    sortComparablesByDate(existingItem.comparables);
+                    existingItem.news.sort((left, right) => new Date(left.date) - new Date(right.date));
+                    existingItem.price = existingItem.comparables[existingItem.comparables.length - 1].price;
+                } else {
+                    inventoryData.push({
+                        id: Date.now(),
+                        category: category.toUpperCase(),
+                        name,
+                        status,
+                        price: parsedPrice,
+                        description,
+                        condition,
+                        acquisitionSource,
+                        images,
+                        comparables: [
+                            {
+                                date: selectedDate,
+                                marketplace: acquisitionSource || "Direct acquisition",
+                                price: parsedPrice,
+                                notes: condition || "Unspecified"
+                            }
+                        ],
+                        news: [
+                            {
+                                date: selectedDate,
+                                source: "System",
+                                description: `Initially purchased at ${formatCurrency(parsedPrice)} from ${acquisitionSource || "Unknown source"}.`
+                            }
+                        ]
+                    });
+                }
+
+                renderInventory();
+                renderHeader();
+                saveData();
+                if (editingAssetId !== null) {
+                    const activeItem = inventoryData.find((item) => item.id === editingAssetId);
+                    if (activeItem) {
+                        populateAssetProfile(activeItem);
+                    }
+                }
+                closeModal();
+            });
+            modal.addEventListener("click", (event) => {
+                if (event.target === modal) {
+                    closeModal();
+                }
+            });
+        }
+
+        function setupEditAsset() {
+            const editAssetButton = document.getElementById("edit-asset-button");
+            const openAddModalButton = document.getElementById("open-add-asset-modal");
+
+            editAssetButton.addEventListener("click", () => {
+                if (currentActiveItemId === null) {
+                    return;
+                }
+
+                const activeItem = inventoryData.find((item) => item.id === currentActiveItemId);
+                if (!activeItem) {
+                    return;
+                }
+
+                editingAssetId = activeItem.id;
+                document.querySelector("#add-asset-modal h2").textContent = "Edit Asset";
+                document.querySelector('#add-asset-form button[type="submit"]').textContent = "Save Changes";
+                const genesisComparable = Array.isArray(activeItem.comparables) && activeItem.comparables.length > 0
+                    ? [...activeItem.comparables].sort((left, right) => new Date(left.date) - new Date(right.date))[0]
+                    : null;
+                document.getElementById("asset-name-input").value = activeItem.name || "";
+                document.getElementById("asset-description-input").value = activeItem.description || "";
+                document.getElementById("asset-source-input").value = activeItem.acquisitionSource || "";
+                document.getElementById("asset-price-input").value = genesisComparable ? genesisComparable.price : (activeItem.price || "");
+                document.getElementById("owner-condition-input").value = activeItem.condition || "";
+                document.getElementById("asset-type-input").value = activeItem.category || "";
+                document.getElementById("initial-status-select").value = activeItem.status || "Vaulted";
+                document.getElementById("purchase-today-checkbox").checked = false;
+                document.getElementById("purchase-date-field").classList.remove("hidden");
+                document.getElementById("purchase-date-input").value = genesisComparable ? genesisComparable.date : getLocalYMD();
+                document.getElementById("image-upload-status").textContent = activeItem.images && activeItem.images.length > 0
+                    ? `${activeItem.images.length} existing image(s) stored`
+                    : "No images selected";
+                openAddModalButton.click();
+            });
+        }
+
+        function setupUpdateAssetModal() {
+            const modal = document.getElementById("update-asset-modal");
+            const openButton = document.getElementById("update-asset-button");
+            const closeButton = document.getElementById("close-update-asset-modal");
+            const cancelButton = document.getElementById("cancel-update-asset-modal");
+            const form = document.getElementById("update-asset-form");
+
+            function openModal() {
+                if (currentActiveItemId === null) {
+                    return;
+                }
+
+                modal.classList.remove("hidden");
+            }
+
+            function closeModal() {
+                form.reset();
+                modal.classList.add("hidden");
+            }
+
+            openButton.addEventListener("click", openModal);
+            closeButton.addEventListener("click", closeModal);
+            cancelButton.addEventListener("click", closeModal);
+            form.addEventListener("submit", (event) => {
+                event.preventDefault();
+
+                if (currentActiveItemId === null) {
+                    return;
+                }
+
+                const activeItem = inventoryData.find((item) => item.id === currentActiveItemId);
+                if (!activeItem) {
+                    return;
+                }
+
+                const updateDescription = document.getElementById("update-description-input").value.trim();
+                const today = getLocalYMD();
+
+                if (!updateDescription) {
+                    return;
+                }
+
+                if (!Array.isArray(activeItem.news)) {
+                    activeItem.news = [];
+                }
+
+                activeItem.news.push({
+                    date: today,
+                    source: "User Update",
+                    description: updateDescription,
+                    isUserUpdate: true
+                });
+                activeItem.news.sort((left, right) => new Date(left.date) - new Date(right.date));
+
+                systemLogs.push({
+                    timestamp: Date.now(),
+                    timestampLabel: getLocalTimestamp(),
+                    message: `Agent evaluation queued for ${activeItem.name}.`
+                });
+
+                populateAssetProfile(activeItem);
+                renderInventory();
+                renderHeader();
+                renderSystemHistory();
+                saveData();
+                closeModal();
+            });
+            modal.addEventListener("click", (event) => {
+                if (event.target === modal) {
+                    closeModal();
+                }
+            });
+        }
+
+        function setupDeleteAsset() {
+            document.getElementById("delete-asset-button").addEventListener("click", () => {
+                if (currentActiveItemId === null) {
+                    return;
+                }
+
+                const nextInventory = inventoryData.filter((item) => item.id !== currentActiveItemId);
+                inventoryData = nextInventory;
+                currentActiveItemId = null;
+                renderInventory();
+                renderHeader();
+                saveData();
+                showView("view-dashboard");
+            });
+        }
+
+        function setupComparablesLogging() {
+            document.getElementById("log-new-comp-button").addEventListener("click", () => {
+                document.getElementById("open-log-comp-modal-button").click();
+            });
+
+            document.getElementById("generate-comp-button").addEventListener("click", () => {
+                window.alert("Engine running: Fetching live market data...");
+            });
+        }
+
+        function setupLogNewsModal() {
+            const modal = document.getElementById("log-news-modal");
+            const openButton = document.getElementById("log-news-button");
+            const closeButton = document.getElementById("close-log-news-modal");
+            const cancelButton = document.getElementById("cancel-log-news-modal");
+            const form = document.getElementById("log-news-form");
+
+            function openModal() {
+                if (currentActiveItemId === null) {
+                    return;
+                }
+
+                document.getElementById("news-date-input").value = getLocalYMD();
+                modal.classList.remove("hidden");
+            }
+
+            function closeModal() {
+                form.reset();
+                modal.classList.add("hidden");
+            }
+
+            openButton.addEventListener("click", openModal);
+            closeButton.addEventListener("click", closeModal);
+            cancelButton.addEventListener("click", closeModal);
+            document.getElementById("generate-news-button").addEventListener("click", () => {
+                window.alert("LLM Engine not yet connected.");
+            });
+
+            form.addEventListener("submit", (event) => {
+                event.preventDefault();
+
+                if (currentActiveItemId === null) {
+                    return;
+                }
+
+                const activeItem = inventoryData.find((item) => item.id === currentActiveItemId);
+                if (!activeItem) {
+                    return;
+                }
+
+                const date = document.getElementById("news-date-input").value;
+                const source = document.getElementById("news-source-input").value.trim();
+                const description = document.getElementById("news-description-input").value.trim();
+
+                if (!date || !source || !description) {
+                    return;
+                }
+
+                if (!Array.isArray(activeItem.news)) {
+                    activeItem.news = [];
+                }
+
+                activeItem.news.push({ date, source, description });
+                activeItem.news.sort((left, right) => new Date(left.date) - new Date(right.date));
+                renderAssetNews(activeItem);
+                saveData();
+                closeModal();
+            });
+
+            modal.addEventListener("click", (event) => {
+                if (event.target === modal) {
+                    closeModal();
+                }
+            });
+        }
+
+        function setupLogCompModal() {
+            const modal = document.getElementById("log-comp-modal");
+            const openButton = document.getElementById("open-log-comp-modal-button");
+            const closeButton = document.getElementById("close-log-comp-modal");
+            const cancelButton = document.getElementById("cancel-log-comp-modal");
+            const form = document.getElementById("log-comp-form");
+
+            function openModal() {
+                if (currentActiveItemId === null) {
+                    return;
+                }
+
+                document.getElementById("comp-date-input").value = getLocalYMD();
+                modal.classList.remove("hidden");
+            }
+
+            function closeModal() {
+                form.reset();
+                modal.classList.add("hidden");
+            }
+
+            openButton.addEventListener("click", openModal);
+            closeButton.addEventListener("click", closeModal);
+            cancelButton.addEventListener("click", closeModal);
+            form.addEventListener("submit", (event) => {
+                event.preventDefault();
+
+                if (currentActiveItemId === null) {
+                    return;
+                }
+
+                const activeItem = inventoryData.find((item) => item.id === currentActiveItemId);
+                if (!activeItem) {
+                    return;
+                }
+
+                const date = document.getElementById("comp-date-input").value;
+                const marketplace = document.getElementById("comp-marketplace-input").value.trim();
+                const link = document.getElementById("comp-link-input").value.trim();
+                const priceInput = document.getElementById("comp-price-input").value;
+                const notesInput = document.getElementById("comp-notes-input").value.trim();
+                const parsedPrice = parseFloat(priceInput);
+
+                if (!date || !marketplace || Number.isNaN(parsedPrice)) {
+                    return;
+                }
+
+                activeItem.comparables.push({
+                    date,
+                    marketplace,
+                    price: parsedPrice,
+                    notes: link ? `${notesInput || "Comp logged"} | ${link}` : (notesInput || "Comp logged")
+                });
+                sortComparablesByDate(activeItem.comparables);
+                activeItem.price = activeItem.comparables[activeItem.comparables.length - 1].price;
+
+                renderInventory();
+                renderHeader();
+                populateAssetProfile(activeItem);
+                saveData();
+
+                closeModal();
+            });
+            modal.addEventListener("click", (event) => {
+                if (event.target === modal) {
+                    closeModal();
+                }
+            });
+        }
+
+        function setupBulkActions() {
+            const selectItemsButton = document.getElementById("select-items-button");
+            const deleteSelectedButton = document.getElementById("delete-selected-button");
+            const sellSelectedButton = document.getElementById("sell-selected-button");
+            const cancelSelectButton = document.getElementById("cancel-select-button");
+
+            function getSelectedItemIds() {
+                return Array.from(document.querySelectorAll(".asset-select-checkbox:checked")).map((checkbox) =>
+                    Number(checkbox.getAttribute("data-item-id"))
+                );
+            }
+
+            selectItemsButton.addEventListener("click", () => {
+                isSelectMode = true;
+                renderInventory();
+            });
+
+            cancelSelectButton.addEventListener("click", () => {
+                isSelectMode = false;
+                renderInventory();
+            });
+
+            deleteSelectedButton.addEventListener("click", () => {
+                const selectedItemIds = getSelectedItemIds();
+                if (selectedItemIds.length === 0) {
+                    return;
+                }
+
+                inventoryData = inventoryData.filter((item) => !selectedItemIds.includes(item.id));
+                isSelectMode = false;
+                renderInventory();
+                renderHeader();
+                saveData();
+            });
+
+            sellSelectedButton.addEventListener("click", () => {
+                const selectedItemIds = getSelectedItemIds();
+                if (selectedItemIds.length === 0) {
+                    return;
+                }
+
+                window.alert("Sell pipeline initiated for selected items.");
+            });
+        }
+
+        function setupChatDrawer() {
+            const chatToggle = document.getElementById("chat-toggle");
+            const chatDrawer = document.getElementById("chat-drawer");
+            const closeChatDrawer = document.getElementById("close-chat-drawer");
+
+            chatToggle.addEventListener("click", () => {
+                chatDrawer.classList.toggle("hidden");
+            });
+
+            closeChatDrawer.addEventListener("click", () => {
+                chatDrawer.classList.add("hidden");
+            });
+        }
+
+        function setupAnalyticsView() {
+            document.getElementById("open-analytics-view").addEventListener("click", () => {
+                showView("view-analytics");
+            });
+
+            document.getElementById("analytics-category-filter").addEventListener("change", renderAnalytics);
+            document.getElementById("analytics-status-filter").addEventListener("change", renderAnalytics);
+            document.getElementById("analytics-timeframe-filter").addEventListener("change", renderAnalytics);
+        }
+
+        function setupAlertsTakeover() {
+            document.getElementById("asset-news-trigger").addEventListener("click", () => {
+                renderAlerts(currentActiveItemId);
+                showView("view-alerts");
+            });
+
+            document.getElementById("dashboard-alerts-button").addEventListener("click", () => {
+                renderAlerts(null);
+            });
+        }
+
+        function setupSettingsView() {
+            const saveButton = document.getElementById("save-settings-button");
+            const agent1Provider = document.getElementById("agent-1-provider");
+            const agent1Key = document.getElementById("agent-1-key");
+            const agent2Provider = document.getElementById("agent-2-provider");
+            const agent2Key = document.getElementById("agent-2-key");
+            const agent3Provider = document.getElementById("agent-3-provider");
+            const agent3Key = document.getElementById("agent-3-key");
+            const ebayInput = document.getElementById("ebay-store-url");
+            const facebookInput = document.getElementById("facebook-profile-url");
+            const wipeButton = document.getElementById("wipe-local-data-button");
+            const darkModeToggle = document.getElementById("dark-mode-toggle");
+            const baseCurrencySelect = document.getElementById("base-currency");
+            const conservativeModeToggle = document.getElementById("conservative-mode-toggle");
+
+            populateSettingsForm();
+
+            saveButton.addEventListener("click", () => {
+                settingsData = {
+                    ...settingsData,
+                    baseCurrency: baseCurrencySelect.value,
+                    marketplaceIntegrations: {
+                        ebayStoreUrl: ebayInput.value.trim(),
+                        facebookMarketplaceUrl: facebookInput.value.trim()
+                    },
+                    agents: {
+                        visionIdentification: {
+                            provider: agent1Provider.value,
+                            apiKey: agent1Key.value.trim()
+                        },
+                        marketDataScraping: {
+                            provider: agent2Provider.value,
+                            apiKey: agent2Key.value.trim()
+                        },
+                        speculationValuation: {
+                            provider: agent3Provider.value,
+                            apiKey: agent3Key.value.trim()
+                        }
+                    }
+                };
+                currentCurrency = baseCurrencySelect.value;
+                localStorage.setItem("appCurrency", currentCurrency);
+                saveSettings();
+                renderInventory();
+                renderHeader();
+                renderAlerts(null);
+                renderSystemHistory();
+                if (currentActiveItemId !== null) {
+                    const activeItem = inventoryData.find((item) => item.id === currentActiveItemId);
+                    if (activeItem) {
+                        populateAssetProfile(activeItem);
+                    }
+                }
+                renderAnalytics();
+                window.alert("Local settings saved.");
+            });
+
+            darkModeToggle.addEventListener("click", () => {
+                const nextTheme = settingsData.theme === "dark" ? "light" : "dark";
+                applyTheme(nextTheme);
+                saveSettings();
+            });
+
+            baseCurrencySelect.addEventListener("change", () => {
+                settingsData.baseCurrency = baseCurrencySelect.value;
+                currentCurrency = baseCurrencySelect.value;
+                localStorage.setItem("appCurrency", currentCurrency);
+                saveSettings();
+                renderInventory();
+                renderHeader();
+                renderAlerts(null);
+                renderSystemHistory();
+                if (currentActiveItemId !== null) {
+                    const activeItem = inventoryData.find((item) => item.id === currentActiveItemId);
+                    if (activeItem) {
+                        populateAssetProfile(activeItem);
+                    }
+                }
+                renderAnalytics();
+            });
+
+            conservativeModeToggle.addEventListener("click", () => {
+                settingsData.conservativeValuationMode = !settingsData.conservativeValuationMode;
+                updateConservativeModeToggle();
+                saveSettings();
+            });
+
+            wipeButton.addEventListener("click", () => {
+                const confirmed = window.confirm("Are you sure? This cannot be undone.");
+                if (!confirmed) {
+                    return;
+                }
+
+                localStorage.clear();
+                window.location.reload();
+            });
+        }
+
+        function setupDataTools() {
+            const downloadButton = document.getElementById("download-collection-data");
+            const uploadButton = document.getElementById("upload-collection-data");
+            const uploadInput = document.getElementById("upload-collection-file");
+
+            downloadButton.addEventListener("click", () => {
+                const blob = new Blob([JSON.stringify(inventoryData, null, 2)], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = `asset_backup_${getLocalYMD()}.json`;
+                link.click();
+                URL.revokeObjectURL(url);
+            });
+
+            uploadButton.addEventListener("click", () => {
+                uploadInput.click();
+            });
+
+            uploadInput.addEventListener("change", async () => {
+                const file = uploadInput.files && uploadInput.files[0];
+                if (!file) {
+                    return;
+                }
+
+                const text = await file.text();
+                const parsedData = JSON.parse(text);
+                inventoryData = Array.isArray(parsedData) ? parsedData : [];
+                saveData();
+                renderInventory();
+                renderHeader();
+                renderAnalytics();
+                renderSystemHistory();
+
+                if (currentActiveItemId !== null) {
+                    const activeItem = inventoryData.find((item) => item.id === currentActiveItemId);
+                    if (activeItem) {
+                        populateAssetProfile(activeItem);
+                    } else {
+                        currentActiveItemId = null;
+                        showView("view-dashboard");
+                    }
+                }
+
+                uploadInput.value = "";
+            });
+        }
+
+        loadData();
+        renderAlerts(null);
+        renderSystemHistory();
+        renderInventory();
+        renderHeader();
+        populateSettingsForm();
+        setupViewNavigation();
+        setupHomeNavigation();
+        setupAddAssetModal();
+        setupEditAsset();
+        setupDeleteAsset();
+        setupUpdateAssetModal();
+        setupComparablesLogging();
+        setupLogNewsModal();
+        setupLogCompModal();
+        setupBulkActions();
+        setupChatDrawer();
+        setupAnalyticsView();
+        setupAlertsTakeover();
+        setupSettingsView();
+        setupDataTools();
+        setActiveNav("view-dashboard");
+    </script>
+</body>
+</html>
+
+
