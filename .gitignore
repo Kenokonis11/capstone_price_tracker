@@ -1,4 +1,7 @@
+.env
 __pycache__/
 *.pyc
-.env
-node_modules/
+assettrack.db
+*.db
+.idea/
+.vscode/
