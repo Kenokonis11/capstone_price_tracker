@@ -184,8 +184,8 @@ Rate your identification confidence from 0.0 to 1.0:
 
   0.90 – 1.00 : Clear images + detailed description, item unambiguously identified
   0.75 – 0.89 : Strong identification, missing minor details (year, sub-variant)
-  0.60 – 0.74 : Reasonable guess with significant uncertainty (blurry image, vague text)
-  Below 0.60  : Cannot reliably identify — flag for human review
+  0.70 – 0.74 : Reasonable guess with significant uncertainty (blurry image, vague text)
+  Below 0.70  : Cannot reliably identify — flag for human review
 
 Be CONSERVATIVE.  A false positive (high confidence on a wrong ID) is far
 worse than requesting human review.

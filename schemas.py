@@ -126,6 +126,24 @@ class Comparable(BaseModel):
         None,
         description="Contextual notes regarding this specific comp",
     )
+    source_type: str = Field(
+        default="automated",
+        description=(
+            "Data provenance: 'automated' for API-sourced comps (eBay, Google "
+            "Shopping, etc.) or 'manual_social' for user-submitted social proof "
+            "(Facebook Marketplace, Craigslist, etc.)."
+        ),
+    )
+    confidence_weight: float = Field(
+        default=1.0,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "How much to trust this comp in valuation. 1.0 = fully verified "
+            "API transaction. Lower values for sketchy, incomplete, or "
+            "suspicious social listings. Set by the Verification Agent."
+        ),
+    )
 
 
 class NewsEvent(BaseModel):
@@ -173,6 +191,10 @@ class Asset(BaseModel):
         None,
         description="Detailed physical description",
     )
+    acquisition_source: Optional[str] = Field(
+        None,
+        description="Where the asset was acquired or sourced.",
+    )
 
     # Classification (User Context → AI Strict Enum)
     raw_user_category: Optional[str] = Field(
@@ -214,43 +236,26 @@ class Asset(BaseModel):
 
 class RawAssetInput(BaseModel):
     """
-    Payload received from the Add Asset frontend modal.
+    Frontend → backend ingestion payload.
 
-    This is the unprocessed user submission that the LangGraph ingestion
-    pipeline receives as its initial input before any AI enrichment.
+    This is the unprocessed user submission that the LangGraph pipeline
+    receives as its initial input before any AI enrichment.
     """
 
-    raw_name: str = Field(
-        ...,
-        description="User-provided title",
-    )
-    raw_description: Optional[str] = Field(
+    raw_text: Optional[str] = Field(
         None,
-        description="User's detailed description",
+        description=(
+            "Free-text description from the user "
+            "(e.g., 'My old charizard card from 1999, pretty good shape')."
+        ),
+    )
+    images: List[str] = Field(
+        default_factory=list,
+        description="List of Base64-encoded image strings or full data URIs.",
     )
     raw_category: Optional[str] = Field(
         None,
-        description="Free-text category the user typed (preserved in Asset.raw_user_category)",
-    )
-    acquisition_source: Optional[str] = Field(
-        None,
-        description="Where it was acquired",
-    )
-    purchase_price: Optional[float] = Field(
-        None,
-        description="Original cost basis in USD",
-    )
-    owner_condition: Optional[str] = Field(
-        None,
-        description="User's own description of item condition",
-    )
-    intended_status: ItemStatus = Field(
-        default=ItemStatus.VAULTED,
-        description="User's pipeline status selection",
-    )
-    image_paths: List[str] = Field(
-        default_factory=list,
-        description="Paths to uploaded multimodal images",
+        description="Optional category hint the user selected on the frontend.",
     )
 
 

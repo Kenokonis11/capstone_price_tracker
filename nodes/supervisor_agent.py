@@ -139,6 +139,8 @@ You will receive a structured briefing containing:
 
   • MARKET COMPARABLES: An array of recent sales/transactions, each with:
     - event_date, marketplace, condition, price (USD), notes
+    - source_type: 'automated' (API-verified) or 'manual_social' (user-submitted)
+    - confidence_weight: 0.0-1.0 trust score (set by the Verification Agent)
 
   • NEWS & TRENDS: An array of relevant market events that may affect
     value (product announcements, recalls, cultural moments, etc.)
@@ -183,10 +185,21 @@ Follow this analytical framework in strict order:
     If no news is available, state "no significant trend signals" and
     rely purely on the comparables.
 
-  Step 5 — FINAL SYNTHESIS
-    Compute a weighted average of the condition-adjusted, outlier-cleaned
-    comparables.  Apply the trend adjustment.  Output a single concrete
-    USD value — NOT a range.
+  Step 5 — DATA PROVENANCE WEIGHTING
+    Each comparable has a source_type and confidence_weight:
+    • 'automated' comps (from eBay, Google Shopping, etc.) represent
+      verified transactions.  Use them at full weight (confidence_weight=1.0).
+    • 'manual_social' comps (from Facebook Marketplace, Craigslist, etc.)
+      are user-submitted and have been pre-screened by a Verification Agent.
+      Multiply their influence by their confidence_weight.  A comp with
+      weight 0.3 should have roughly 30% the influence of a verified comp.
+    Do NOT let a single low-weight social listing drastically skew the
+    valuation established by verified automated data.
+
+  Step 6 — FINAL SYNTHESIS
+    Compute a weighted average of the condition-adjusted, outlier-cleaned,
+    provenance-weighted comparables.  Apply the trend adjustment.  Output
+    a single concrete USD value — NOT a range.
 
 ═══════════════════════════════════════════════
  3.  OUTPUT REQUIREMENTS
@@ -261,7 +274,9 @@ def _format_comparables_briefing(state: AssetState) -> str:
         line = (
             f"  [{i}] {comp.event_date} | {comp.marketplace} | "
             f"Condition: {comp.condition.value} | "
-            f"Price: ${comp.price:,.2f}"
+            f"Price: ${comp.price:,.2f} | "
+            f"Source: {comp.source_type} | "
+            f"Weight: {comp.confidence_weight:.2f}"
         )
         if comp.notes:
             line += f" | Notes: {comp.notes}"

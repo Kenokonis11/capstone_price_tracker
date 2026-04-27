@@ -1,0 +1,23 @@
+# Core
+fastapi>=0.110
+uvicorn[standard]>=0.29
+python-dotenv>=1.0
+pydantic>=2.0
+
+# Database
+sqlalchemy>=2.0
+
+# LLM Orchestration
+langgraph>=0.2
+langchain-core>=0.3
+langchain-google-genai>=2.0
+langchain-openai>=0.2
+
+# Optional LLM providers / integrations
+# langchain-community>=0.3     # needed for Ollama chat agent
+
+# HTTP / Scraping
+requests>=2.31
+
+# MCP Server
+mcp>=1.0
