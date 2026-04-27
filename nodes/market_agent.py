@@ -21,12 +21,13 @@ FORBIDDEN  : asset.name, asset.category, asset.condition,
 
 from __future__ import annotations
 
+import base64
 import logging
 import os
 from datetime import date, datetime
 from typing import Callable, List, Optional
 
-import requests as http_requests
+import requests
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.tools import tool
@@ -43,7 +44,46 @@ logger = logging.getLogger(__name__)
 
 # ── API Keys ──
 # Read lazily so load_dotenv() in main.py has already run.
-def _get_ebay_token() -> str | None: return os.getenv("EBAY_TOKEN")
+def get_ebay_access_token() -> str | None:
+    """
+    Generate an OAuth 2.0 Access Token using eBay Client Credentials.
+    """
+    client_id = os.getenv("EBAY_CLIENT_ID")
+    client_secret = os.getenv("EBAY_CLIENT_SECRET")
+    
+    if not client_id or not client_secret:
+        return None
+
+    credentials = f"{client_id}:{client_secret}"
+    encoded_credentials = base64.b64encode(credentials.encode()).decode()
+
+    try:
+        response = requests.post(
+            "https://api.ebay.com/identity/v1/oauth2/token",
+            headers={
+                "Authorization": f"Basic {encoded_credentials}",
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            data={
+                "grant_type": "client_credentials",
+                "scope": "https://api.ebay.com/oauth/api_scope",
+            },
+            timeout=10,
+        )
+        if response.status_code == 200:
+            return response.json().get("access_token")
+        else:
+            logger.warning(
+                "[eBay OAuth] Failed to get token: %d %s", 
+                response.status_code, 
+                response.text
+            )
+            return None
+    except Exception as exc:
+        logger.warning("[eBay OAuth] Exception during token generation: %s", exc)
+        return None
+
+
 def _get_serpapi_key() -> str | None: return os.getenv("SERPAPI_KEY")
 def _get_tavily_key() -> str | None: return os.getenv("TAVILY_API_KEY")
 
@@ -119,20 +159,15 @@ def _mock_tavily(keyword: str, site: str = "") -> list[dict]:
 
 # ── REAL API HELPERS ───────────────────────────
 
-def _ebay_api_search(keyword: str) -> list[dict]:
+def _ebay_api_search(keyword: str, token: str) -> list[dict]:
     """
     Hit the eBay Browse API for ACTIVE listings matching the keyword.
-
-    NOTE: The Browse API returns current/active inventory (asking prices), not
-    completed/sold transactions. To protect ledger integrity, we do NOT
-    populate ``date_sold`` from these results. Instead we record a
-    ``scrape_date`` and explicitly label the notes.
     """
     scrape_date = datetime.now().strftime("%Y-%m-%d")
-    resp = http_requests.get(
+    resp = requests.get(
         "https://api.ebay.com/buy/browse/v1/item_summary/search",
         headers={
-            "Authorization": f"Bearer {_get_ebay_token()}",
+            "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
             "X-EBAY-C-MARKETPLACE-ID": "EBAY_US",
         },
@@ -166,7 +201,7 @@ def _ebay_api_search(keyword: str) -> list[dict]:
 
 def _serpapi_search(keyword: str) -> list[dict]:
     """Hit the SerpApi Google Shopping endpoint."""
-    resp = http_requests.get(
+    resp = requests.get(
         "https://serpapi.com/search.json",
         params={
             "engine": "google_shopping",
@@ -197,7 +232,7 @@ def _serpapi_search(keyword: str) -> list[dict]:
 def _tavily_api_search(keyword: str, site: str | None = None) -> list[dict]:
     """Hit the Tavily Search API with optional site targeting."""
     query = f"{keyword} site:{site}" if site else keyword
-    resp = http_requests.post(
+    resp = requests.post(
         "https://api.tavily.com/search",
         json={
             "api_key": _get_tavily_key(),
@@ -238,21 +273,24 @@ def search_ebay_completed(keyword: str) -> list[dict]:
     "ACTIVE ASKING PRICE - NOT SOLD", include ``scrape_date``, and do NOT set
     ``date_sold``.
 
-    Falls back to mock data if EBAY_TOKEN is missing.
+    Falls back to mock data if eBay OAuth fails or keys are missing.
 
     Args:
         keyword: A market-ready search string (e.g., "Rolex Submariner 116610LN").
     """
     logger.info("[Tool:eBay] Searching for: %s", keyword)
-    if not _get_ebay_token():
-        logger.warning("[Tool:eBay] EBAY_TOKEN not set — returning mock data")
+    
+    token = get_ebay_access_token()
+    if not token:
+        logger.warning("[Tool:eBay] OAuth failed or missing keys — returning mock data")
         return _attach_fallback_warning(
             _mock_ebay(keyword),
             tool_label="eBay",
-            reason="Missing EBAY_TOKEN",
+            reason="OAuth failure or missing EBAY_CLIENT_ID/SECRET",
         )
+    
     try:
-        results = _ebay_api_search(keyword)
+        results = _ebay_api_search(keyword, token)
         logger.info("[Tool:eBay] Got %d real results", len(results))
         if results:
             return results
